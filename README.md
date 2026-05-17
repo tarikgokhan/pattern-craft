@@ -97,7 +97,3 @@ Application ve mikroservis tasarım desenleri için pratik referans dokümantasy
 | 86 | Microservice Design Patterns | Modernization Patterns | **Open Host Service** | Domain kabiliyetlerini dış sistemlere kontrollü API ile açar. | [Open Host Service](docs/microservice/modernization/open-host-service.md) |
 | 87 | Microservice Design Patterns | Modernization Patterns | **Published Language** | Sistemler arası ortak sözleşme dili oluşturur. | [Published Language](docs/microservice/modernization/published-language.md) |
 
-## Kullanım Notu
-- Ana sayfa olarak bu dosya `README.md` adıyla repo kök dizinine konumlandırılabilir.
-- Her pattern için verilen linkler, ilgili kategori klasörü altında açılacak detay dosyalarını temsil eder.
-- Sonraki aşamada her pattern dosyası için amaç, problem, çözüm, .NET örneği, avantaj, dezavantaj ve kullanım senaryosu başlıklarıyla ayrı içerik üretilebilir.
