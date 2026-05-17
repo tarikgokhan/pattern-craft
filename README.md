@@ -1,4 +1,6 @@
 # PatternCraft
+![Pattern Craft - Design Patterns Overview](assets/images/PatternCraft.png)
+
 Application ve mikroservis tasarım desenleri için pratik referans dokümantasyon deposu.
 ## Kategori Yapısı
 | Ana Kategori | Alt Kategoriler | Amaç |
