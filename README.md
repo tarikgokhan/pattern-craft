@@ -1,6 +1,5 @@
 # PatternCraft
 Application ve mikroservis tasarım desenleri için pratik referans dokümantasyon deposu.
-> Bu ana sayfa, repodaki tüm tasarım desenlerini tek tabloda özetler. Her desen için linkler ilgili kategori klasöründeki Markdown dosyasına yönlendirilmiştir. Şimdilik ana içerik bu sayfadır; desen detayları daha sonra ayrı ayrı çalışılacaktır.
 ## Kategori Yapısı
 | Ana Kategori | Alt Kategoriler | Amaç |
 |---|---|---|
