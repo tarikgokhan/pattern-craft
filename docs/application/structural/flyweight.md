@@ -82,7 +82,7 @@ classDiagram
     }
 
     class TreeStyleFactory {
-        -Dictionary~string, TreeStyle~ _styles
+        -ConcurrentDictionary _styles
         +GetOrCreate(string, string, string) TreeStyle
     }
 
@@ -110,6 +110,7 @@ Aşağıdaki örnek, .NET/C# odağında derlenebilir bir Flyweight uygulamasın�
 
 ```csharp
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace PatternCraft.Structural.Flyweight;
@@ -162,17 +163,43 @@ public sealed class TreeStyle
 /// <summary>
 /// Ağaç için örneğe özel dışsal durumu temsil eder.
 /// </summary>
-/// <param name="X">X koordinatını belirtir.</param>
-/// <param name="Y">Y koordinatını belirtir.</param>
-/// <param name="HeightInMeters">Ağacın yüksekliğini belirtir.</param>
-public readonly record struct TreePlacement(int X, int Y, int HeightInMeters);
+public readonly record struct TreePlacement
+{
+    /// <summary>
+    /// <see cref="TreePlacement"/> yapısının yeni bir örneğini başlatır.
+    /// </summary>
+    /// <param name="x">X koordinatını belirtir.</param>
+    /// <param name="y">Y koordinatını belirtir.</param>
+    /// <param name="heightInMeters">Ağacın yüksekliğini belirtir.</param>
+    public TreePlacement(int x, int y, int heightInMeters)
+    {
+        X = x;
+        Y = y;
+        HeightInMeters = heightInMeters;
+    }
+
+    /// <summary>
+    /// X koordinatını alır.
+    /// </summary>
+    public int X { get; }
+
+    /// <summary>
+    /// Y koordinatını alır.
+    /// </summary>
+    public int Y { get; }
+
+    /// <summary>
+    /// Ağacın yüksekliğini metre cinsinden alır.
+    /// </summary>
+    public int HeightInMeters { get; }
+}
 
 /// <summary>
 /// Paylaşılan ağaç stillerini üreten ve yeniden kullanan fabrikayı temsil eder.
 /// </summary>
 public sealed class TreeStyleFactory
 {
-    private readonly Dictionary<string, TreeStyle> _styles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<(string Species, string TexturePath, string LeafColor), TreeStyle> _styles = new();
 
     /// <summary>
     /// Verilen stil bilgileri için mevcut flyweight örneğini döner veya yenisini oluşturur.
@@ -183,16 +210,11 @@ public sealed class TreeStyleFactory
     /// <returns>Paylaşılan <see cref="TreeStyle"/> örneğini döner.</returns>
     public TreeStyle GetOrCreate(string species, string texturePath, string leafColor)
     {
-        var key = $"{species}|{texturePath}|{leafColor}";
+        var key = (species, texturePath, leafColor);
 
-        if (_styles.TryGetValue(key, out var existingStyle))
-        {
-            return existingStyle;
-        }
-
-        var style = new TreeStyle(species, texturePath, leafColor);
-        _styles[key] = style;
-        return style;
+        return _styles.GetOrAdd(
+            key,
+            static styleKey => new TreeStyle(styleKey.Species, styleKey.TexturePath, styleKey.LeafColor));
     }
 }
 
