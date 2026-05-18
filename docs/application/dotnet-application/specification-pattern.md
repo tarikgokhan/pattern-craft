@@ -192,14 +192,16 @@ public sealed class ApplicantMeetsAgeRequirementSpecification(int minimumAge) : 
 /// <summary>
 /// Kayıt son tarihinin geçip geçmediğini kontrol eder.
 /// </summary>
-public sealed class RegistrationDeadlineNotPassedSpecification : ISpecification<WorkshopRegistration>
+/// <param name="timeProvider">Sistem zamanını sağlayan provider.</param>
+public sealed class RegistrationDeadlineNotPassedSpecification(TimeProvider timeProvider) : ISpecification<WorkshopRegistration>
 {
     /// <summary>
     /// Başvurunun son tarihten önce yapılıp yapılmadığını döner.
     /// </summary>
     /// <param name="candidate">Değerlendirilecek başvuru.</param>
     /// <returns>Son tarih geçmediyse <see langword="true"/>.</returns>
-    public bool IsSatisfiedBy(WorkshopRegistration candidate) => DateTime.UtcNow <= candidate.RegistrationDeadlineUtc;
+    public bool IsSatisfiedBy(WorkshopRegistration candidate)
+        => timeProvider.GetUtcNow().UtcDateTime <= candidate.RegistrationDeadlineUtc;
 }
 
 /// <summary>
@@ -216,7 +218,7 @@ public static class Example
     {
         ISpecification<WorkshopRegistration> specification = new WorkshopHasSeatSpecification();
         specification = specification.And(new ApplicantMeetsAgeRequirementSpecification(minimumAge: 16));
-        specification = specification.And(new RegistrationDeadlineNotPassedSpecification());
+        specification = specification.And(new RegistrationDeadlineNotPassedSpecification(TimeProvider.System));
 
         return specification.IsSatisfiedBy(registration);
     }
