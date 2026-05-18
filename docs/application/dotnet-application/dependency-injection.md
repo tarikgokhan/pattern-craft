@@ -27,7 +27,7 @@ Dependency Injection bu düğümü çözer. Sınıf yalnızca “neye ihtiyacı 
 
 ## 4. Gerçek Hayattan Bir Senaryo
 
-Bir yaratıcı atölye rezervasyon platformu düşünün. Kullanıcı bir seramik atölyesine kayıt olduğunda sistemin üç işi vardır: rezervasyonu kaydetmek, katılımcıya onay mesajı göndermek ve gerekli durumlarda takvime eklemek.
+Bir yaratıcı atölye rezervasyon platformu düşünün. Kullanıcı bir seramik atölyesine kayıt olduğunda sistemin iki temel işi vardır: rezervasyonu kaydetmek ve katılımcıya onay mesajı göndermek.
 
 Eğer `WorkshopReservationService` bu servislerin hepsini kendi içinde üretürse, sınıf kısa sürede küçük bir orkestradan çok tek kişilik bir sahne gösterisine dönüşür. Oysa bağımlılıklar dışarıdan verildiğinde servis yalnızca akışı yönetir: “rezervasyonu kaydet, mesajı gönder, işlem tamam.” Bu yapı hem okunur hem de kolayca test edilir.
 
@@ -152,7 +152,7 @@ public sealed class CreateWorkshopReservationUseCase
 /// <summary>
 /// Creates application objects in a single composition point.
 /// </summary>
-public static class CompositionRoot
+public static class ApplicationComposition
 {
     /// <summary>
     /// Creates a ready-to-use reservation workflow.
