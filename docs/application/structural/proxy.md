@@ -43,7 +43,7 @@ Bu noktada `ExhibitCatalogProxy`, iki işi aynı anda yapar: önce ziyaretçinin
 
 ```csharp
 using System;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -104,11 +104,12 @@ public sealed class LiveExhibitCatalog : IExhibitCatalog
 public sealed class ExhibitCatalogProxy : IExhibitCatalog
 {
     private const int MaxCacheEntries = 256;
+    private readonly object _syncRoot = new();
     private readonly IExhibitCatalog _innerCatalog;
     private readonly VisitorContext _visitorContext;
-    // Eser kodları müze kataloğunda büyük/küçük harf duyarlılığı olmadan eşleştirilir.
-    private readonly ConcurrentDictionary<string, ExhibitImage> _cache =
+    private readonly Dictionary<string, ExhibitImage> _cache =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly Queue<string> _cacheOrder = new();
 
     /// <summary>
     /// <see cref="ExhibitCatalogProxy"/> sınıfının yeni bir örneğini başlatır.
@@ -140,23 +141,33 @@ public sealed class ExhibitCatalogProxy : IExhibitCatalog
             return new ExhibitImage(exhibitCode, "Preview", "ProxyFallback");
         }
 
-        if (_cache.TryGetValue(exhibitCode, out var cachedImage))
+        lock (_syncRoot)
         {
-            return cachedImage;
+            if (_cache.TryGetValue(exhibitCode, out var cachedImage))
+            {
+                return cachedImage;
+            }
         }
 
         var image = await _innerCatalog.GetImageAsync(exhibitCode, cancellationToken);
 
-        if (_cache.Count >= MaxCacheEntries)
+        lock (_syncRoot)
         {
-            foreach (var entry in _cache)
+            if (_cache.TryGetValue(exhibitCode, out var cachedImage))
             {
-                _cache.TryRemove(entry.Key, out _);
-                break;
+                return cachedImage;
             }
+
+            if (_cache.Count >= MaxCacheEntries && _cacheOrder.Count > 0)
+            {
+                var oldestKey = _cacheOrder.Dequeue();
+                _cache.Remove(oldestKey);
+            }
+
+            _cache[exhibitCode] = image;
+            _cacheOrder.Enqueue(exhibitCode);
         }
 
-        _cache[exhibitCode] = image;
         return image;
     }
 }
