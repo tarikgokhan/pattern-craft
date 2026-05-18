@@ -98,7 +98,8 @@ public sealed class ExhibitCatalogProxy : IExhibitCatalog
 {
     private readonly IExhibitCatalog _innerCatalog;
     private readonly VisitorContext _visitorContext;
-    private readonly ConcurrentDictionary<string, ExhibitImage> _cache = new();
+    private readonly ConcurrentDictionary<string, ExhibitImage> _cache =
+        new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// <see cref="ExhibitCatalogProxy"/> sınıfının yeni bir örneğini başlatır.
