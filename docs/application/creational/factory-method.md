@@ -1,117 +1,206 @@
 # Factory Method
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Creational Patterns |
-| Pattern | Factory Method |
-| Dosya Yolu | `docs/application/creational/factory-method.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application veya Infrastructure |
+Factory Method, “hangi nesne üretilecek?” kararını kodun her köşesine yaymak yerine tek bir noktada toplar. Böylece akış daha temiz kalır; yeni bir varyasyon eklendiğinde mevcut kodu kırmadan ilerlemek kolaylaşır.
 
-## 1. Kısa Tanım
+## 1. Problem Tanımı
 
-Factory Method, nesne üretme kararını alt sınıflara veya factory yapısına bırakır.
+Bir uygulamada davranış, gelen tipe göre değişiyorsa (`Email`, `InApp`, `Sms` gibi), bu seçim çoğu zaman `if/else` veya `switch` bloklarıyla farklı katmanlara dağılır. Bir süre sonra:
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+- Üretim kararı tekrar eder,
+- Yeni tür eklemek riskli hale gelir,
+- Unit testlerde senaryoları izole etmek zorlaşır.
 
-## 2. Çözdüğü Problem
+Factory Method bu dağınıklığı toparlar: üretim kararını factory’ye taşır, kullanım tarafını sadeleştirir.
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+## 2. Ne Zaman Kullanılır?
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+- Aynı nesne üretim kararı birden fazla yerde tekrar ediyorsa
+- Yeni tiplerin sık eklendiği bir akış varsa
+- Uygulama katmanında “ne yapılacak” ile “hangi sınıf üretilecek” ayrıştırılmak isteniyorsa
+- Testlerde fake/stub implementasyonları kolayca devreye almak gerekiyorsa
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+## 3. UML (Mermaid)
 
-## 3. Kurumsal Talep Yönetimi Örneği
+```mermaid
+classDiagram
+    class INotificationSender {
+        <<interface>>
+        +SendAsync(NotificationMessage, CancellationToken) Task
+    }
 
-Talep tipi veya bildirim kanalı değiştikçe hangi işleyicinin üretileceği merkezi bir factory üzerinden belirlenir.
+    class EmailNotificationSender {
+        +SendAsync(NotificationMessage, CancellationToken) Task
+    }
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+    class InAppNotificationSender {
+        +SendAsync(NotificationMessage, CancellationToken) Task
+    }
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+    class NotificationSenderFactory {
+        +Create(NotificationChannel) INotificationSender
+    }
 
-`IRequestHandlerFactory`, `INotificationSenderFactory` veya `IExportWriterFactory` gibi yapılarda kullanılabilir.
+    class NotificationOrchestrator {
+        +DeliverAsync(NotificationChannel, NotificationMessage, CancellationToken) Task
+    }
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
-
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
-
-## 5. Basit Akış
-
-```text
-Request Type -> Factory -> Concrete Handler -> Use Case
+    INotificationSender <|.. EmailNotificationSender
+    INotificationSender <|.. InAppNotificationSender
+    NotificationSenderFactory --> INotificationSender : creates
+    NotificationOrchestrator --> NotificationSenderFactory : uses
 ```
 
-## 6. Örnek Kod / Taslak
+## 4. C# Örneği (.NET)
 
 ```csharp
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PatternCraft.Creational.FactoryMethod;
+
+/// <summary>
+/// Kullanıcılara gönderilecek bildirim kanallarını temsil eder.
+/// </summary>
+public enum NotificationChannel
+{
+    Email = 1,
+    InApp = 2
+}
+
+/// <summary>
+/// Uygulama içindeki bildirim verisini taşır.
+/// </summary>
+/// <param name="Recipient">Bildirimin hedefi (ör. kullanıcı kimliği veya e-posta adresi).</param>
+/// <param name="Content">Gönderilecek mesaj metni.</param>
+public sealed record NotificationMessage(string Recipient, string Content);
+
+/// <summary>
+/// Bildirim gönderen tüm kanallar için ortak davranışı tanımlar.
+/// </summary>
 public interface INotificationSender
 {
+    /// <summary>
+    /// Bildirimi seçilen kanal üzerinden asenkron olarak gönderir.
+    /// </summary>
+    /// <param name="message">Gönderilecek bildirim verisi.</param>
+    /// <param name="cancellationToken">İşlem iptal sinyali.</param>
     Task SendAsync(NotificationMessage message, CancellationToken cancellationToken);
 }
 
-public sealed class NotificationSenderFactory
+/// <summary>
+/// Bildirim kanalına göre uygun gönderici üreten factory sözleşmesini tanımlar.
+/// </summary>
+public interface INotificationSenderFactory
 {
+    /// <summary>
+    /// Kanal bilgisine göre <see cref="INotificationSender"/> üretir.
+    /// </summary>
+    /// <param name="channel">Kullanılacak bildirim kanalı.</param>
+    /// <returns>Kanal ile eşleşen gönderici implementasyonu.</returns>
+    INotificationSender Create(NotificationChannel channel);
+}
+
+/// <summary>
+/// E-posta kanalından bildirim gönderir.
+/// </summary>
+public sealed class EmailNotificationSender : INotificationSender
+{
+    /// <inheritdoc />
+    public Task SendAsync(NotificationMessage message, CancellationToken cancellationToken)
+    {
+        Console.WriteLine($"[EMAIL] {message.Recipient}: {message.Content}");
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// Uygulama içi kanalından bildirim gönderir.
+/// </summary>
+public sealed class InAppNotificationSender : INotificationSender
+{
+    /// <inheritdoc />
+    public Task SendAsync(NotificationMessage message, CancellationToken cancellationToken)
+    {
+        Console.WriteLine($"[IN-APP] {message.Recipient}: {message.Content}");
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// Bildirim kanalına göre uygun gönderici implementasyonunu üretir.
+/// </summary>
+public sealed class NotificationSenderFactory : INotificationSenderFactory
+{
+    /// <summary>
+    /// Kanal bilgisini kullanarak uygun <see cref="INotificationSender"/> nesnesini oluşturur.
+    /// </summary>
+    /// <param name="channel">Kullanılacak bildirim kanalı.</param>
+    /// <returns>Kanal ile eşleşen gönderici implementasyonu.</returns>
+    /// <exception cref="NotSupportedException">Desteklenmeyen bir kanal geldiğinde fırlatılır.</exception>
     public INotificationSender Create(NotificationChannel channel)
     {
         return channel switch
         {
             NotificationChannel.Email => new EmailNotificationSender(),
             NotificationChannel.InApp => new InAppNotificationSender(),
-            _ => throw new NotSupportedException("Notification channel is not supported.")
+            _ => throw new NotSupportedException($"Unsupported channel: {channel}")
         };
+    }
+}
+
+/// <summary>
+/// Bildirim gönderim akışını yöneten uygulama servisi örneğidir.
+/// </summary>
+public sealed class NotificationOrchestrator
+{
+    private readonly INotificationSenderFactory _factory;
+
+    /// <summary>
+    /// Bildirim orkestratörünü factory bağımlılığı ile başlatır.
+    /// </summary>
+    /// <param name="factory">Kanal bazlı gönderici üreten factory.</param>
+    public NotificationOrchestrator(INotificationSenderFactory factory)
+    {
+        _factory = factory;
+    }
+
+    /// <summary>
+    /// Kanal tipine göre göndericiyi üretir ve bildirimi gönderir.
+    /// </summary>
+    /// <param name="channel">Bildirim kanalı.</param>
+    /// <param name="message">Gönderilecek bildirim.</param>
+    /// <param name="cancellationToken">İptal sinyali.</param>
+    public Task DeliverAsync(
+        NotificationChannel channel,
+        NotificationMessage message,
+        CancellationToken cancellationToken)
+    {
+        var sender = _factory.Create(channel);
+        return sender.SendAsync(message, cancellationToken);
     }
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+## 5. Gerçek Hayat Senaryosu (Finans Dışı)
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+Bir etkinlik yönetim platformu düşünelim: konser, atölye ve seminer duyuruları kullanıcıya farklı kanallardan iletiliyor. Pazarlama ekibi yeni bir kanal (“SMS”) istediğinde mevcut gönderim akışı bozulmadan sadece yeni bir sender implementasyonu ve factory eşlemesi ekleniyor. Uygulama tarafı aynı metodu çağırmaya devam ediyor; yani orkestrasyon sabit, üretim kararı esnek.
 
-## 8. Ne Zaman Kullanılmamalıdır?
+## 6. Avantajlar
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Üretim kararını merkezileştirir, kod tekrarını azaltır.
+- Açık/kapalı prensibine (OCP) daha yakın bir yapı kurar.
+- Uygulama akışını sadeleştirir; “hangi sınıf?” detayı gizlenir.
+- Testlerde factory veya sender kolayca taklit edilebilir.
 
-## 9. Avantajlar
+## 7. Riskler
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
+- Çok küçük bir problem için gereksiz soyutlama oluşturabilir.
+- Factory sınıfı büyürse bakım yükü artabilir.
+- Ekip deseni doğru sınırda kullanmazsa yapı karmaşıklaşabilir.
 
-## 10. Dikkat Edilecekler
+## 8. Test Edilebilirlik Notları
 
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
-
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+- Factory davranışı için kanal bazlı unit test yazılmalıdır.
+- Uygulama servisinde concrete sınıf yerine interface kullanılarak mock/fake ile test yapılabilir.
+- Desteklenmeyen tiplerde beklenen exception davranışı ayrı test edilmelidir.
