@@ -220,7 +220,7 @@ public sealed class WorkshopRegistration
     {
         if (workshopId == Guid.Empty)
         {
-            throw new ArgumentException("Workshop id cannot be empty.", nameof(workshopId));
+            throw new ArgumentException("Workshop ID cannot be empty.", nameof(workshopId));
         }
 
         if (string.IsNullOrWhiteSpace(participantEmail))
