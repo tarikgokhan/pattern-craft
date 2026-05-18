@@ -114,12 +114,26 @@ public sealed class CreateWorkshopRegistrationHandler
         CreateWorkshopRegistrationCommand command,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(command.ParticipantEmail))
+        {
+            return CommandResult.Failure("Participant email is required.");
+        }
+
         var registration = WorkshopRegistration.Create(command.WorkshopId, command.ParticipantEmail);
 
         await _repository.AddAsync(registration, cancellationToken);
-        await _auditLogWriter.WriteAsync(
-            $"Workshop registration created: {registration.Id}",
-            cancellationToken);
+
+        try
+        {
+            await _auditLogWriter.WriteAsync(
+                $"Workshop registration created: {registration.Id}",
+                cancellationToken);
+        }
+        catch
+        {
+            return CommandResult.Failure(
+                "Registration created but audit logging failed. Prefer transactional outbox in production.");
+        }
 
         return CommandResult.Success();
     }
@@ -128,13 +142,20 @@ public sealed class CreateWorkshopRegistrationHandler
 /// <summary>
 /// Komut işleme sonucunu temsil eder.
 /// </summary>
-public sealed record CommandResult(bool IsSuccess)
+public sealed record CommandResult(bool IsSuccess, string? ErrorMessage)
 {
     /// <summary>
     /// Başarılı bir sonuç üretir.
     /// </summary>
     /// <returns>Başarılı command sonucu.</returns>
-    public static CommandResult Success() => new(true);
+    public static CommandResult Success() => new(true, null);
+
+    /// <summary>
+    /// Başarısız bir sonuç üretir.
+    /// </summary>
+    /// <param name="errorMessage">Hata detayını açıklayan mesaj.</param>
+    /// <returns>Başarısız command sonucu.</returns>
+    public static CommandResult Failure(string errorMessage) => new(false, errorMessage);
 }
 
 /// <summary>
@@ -194,12 +215,16 @@ public sealed class WorkshopRegistration
     /// <param name="participantEmail">Katılımcı e-posta adresi.</param>
     /// <returns>Yeni oluşturulan kayıt nesnesi.</returns>
     public static WorkshopRegistration Create(Guid workshopId, string participantEmail) =>
-        new()
-        {
-            Id = Guid.NewGuid(),
-            WorkshopId = workshopId,
-            ParticipantEmail = participantEmail
-        };
+        workshopId == Guid.Empty
+            ? throw new ArgumentException("Workshop id cannot be empty.", nameof(workshopId))
+            : string.IsNullOrWhiteSpace(participantEmail)
+                ? throw new ArgumentException("Participant email is required.", nameof(participantEmail))
+                : new WorkshopRegistration
+                {
+                    Id = Guid.NewGuid(),
+                    WorkshopId = workshopId,
+                    ParticipantEmail = participantEmail
+                };
 }
 ```
 
