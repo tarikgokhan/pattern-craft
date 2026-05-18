@@ -71,7 +71,7 @@ public enum NotificationChannel
 /// <summary>
 /// Uygulama içindeki bildirim verisini taşır.
 /// </summary>
-/// <param name="Recipient">Bildirimin hedef kullanıcısı.</param>
+/// <param name="Recipient">Bildirimin hedefi (ör. kullanıcı kimliği veya e-posta adresi).</param>
 /// <param name="Content">Gönderilecek mesaj metni.</param>
 public sealed record NotificationMessage(string Recipient, string Content);
 
@@ -86,6 +86,19 @@ public interface INotificationSender
     /// <param name="message">Gönderilecek bildirim verisi.</param>
     /// <param name="cancellationToken">İşlem iptal sinyali.</param>
     Task SendAsync(NotificationMessage message, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Bildirim kanalına göre uygun gönderici üreten factory sözleşmesini tanımlar.
+/// </summary>
+public interface INotificationSenderFactory
+{
+    /// <summary>
+    /// Kanal bilgisine göre <see cref="INotificationSender"/> üretir.
+    /// </summary>
+    /// <param name="channel">Kullanılacak bildirim kanalı.</param>
+    /// <returns>Kanal ile eşleşen gönderici implementasyonu.</returns>
+    INotificationSender Create(NotificationChannel channel);
 }
 
 /// <summary>
@@ -117,7 +130,7 @@ public sealed class InAppNotificationSender : INotificationSender
 /// <summary>
 /// Bildirim kanalına göre uygun gönderici implementasyonunu üretir.
 /// </summary>
-public sealed class NotificationSenderFactory
+public sealed class NotificationSenderFactory : INotificationSenderFactory
 {
     /// <summary>
     /// Kanal bilgisini kullanarak uygun <see cref="INotificationSender"/> nesnesini oluşturur.
@@ -141,7 +154,16 @@ public sealed class NotificationSenderFactory
 /// </summary>
 public sealed class NotificationOrchestrator
 {
-    private readonly NotificationSenderFactory _factory = new();
+    private readonly INotificationSenderFactory _factory;
+
+    /// <summary>
+    /// Bildirim orkestratörünü factory bağımlılığı ile başlatır.
+    /// </summary>
+    /// <param name="factory">Kanal bazlı gönderici üreten factory.</param>
+    public NotificationOrchestrator(INotificationSenderFactory factory)
+    {
+        _factory = factory;
+    }
 
     /// <summary>
     /// Kanal tipine göre göndericiyi üretir ve bildirimi gönderir.
