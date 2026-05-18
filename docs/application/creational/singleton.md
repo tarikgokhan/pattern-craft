@@ -43,10 +43,7 @@ classDiagram
     }
 
     class NotificationTemplateRegistry {
-      -Lazy~NotificationTemplateRegistry~ _lazy
-      -Dictionary~string,string~ _templates
-      -NotificationTemplateRegistry()
-      +NotificationTemplateRegistry Instance
+      -ImmutableDictionary~string,string~ _templates
       +string Get(string templateKey)
     }
 
@@ -101,14 +98,15 @@ public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
 /// <summary>
 /// DI kaydında Singleton lifetime kullanım örneğini gösterir.
 /// </summary>
-public static class ServiceCollectionRegistration
+public static class NotificationRegistrationExtensions
 {
     /// <summary>
-    /// Bildirim servislerini Singleton yaşam döngüsü ile kaydeder.
+    /// Bildirim şablon kayıt servisini Singleton yaşam döngüsü ile ekler.
     /// </summary>
-    public static void Register(IServiceCollection services)
+    public static IServiceCollection AddNotificationTemplateRegistry(this IServiceCollection services)
     {
         services.AddSingleton<INotificationTemplateRegistry, NotificationTemplateRegistry>();
+        return services;
     }
 }
 ```
