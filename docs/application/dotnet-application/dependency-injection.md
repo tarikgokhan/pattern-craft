@@ -27,7 +27,7 @@ Dependency Injection bu düğümü çözer. Sınıf yalnızca “neye ihtiyacı 
 
 ## 4. Gerçek Hayattan Bir Senaryo
 
-Bir yaratıcı atölye rezervasyon platformu düşünün. Kullanıcı bir seramik atölyesine kayıt olduğunda sistemin iki temel işi vardır: rezervasyonu kaydetmek ve katılımcıya onay mesajı göndermek.
+Bir yaratıcı atölye rezervasyon platformu düşünün. Kullanıcı bir seramik atölyesi için rezervasyon yaptığında sistemin iki temel işi vardır: rezervasyonu kaydetmek ve katılımcıya onay mesajı göndermek.
 
 Eğer `WorkshopReservationService` bu servislerin hepsini kendi içinde üretürse, sınıf kısa sürede küçük bir orkestradan çok tek kişilik bir sahne gösterisine dönüşür. Oysa bağımlılıklar dışarıdan verildiğinde servis yalnızca akışı yönetir: “rezervasyonu kaydet, mesajı gönder, işlem tamam.” Bu yapı hem okunur hem de kolayca test edilir.
 
@@ -194,7 +194,7 @@ internal sealed class ConsoleConfirmationChannel : IConfirmationChannel
 }
 ```
 
-Bu örnekte use-case sınıfı herhangi bir somut repository veya mesaj kanalı üretmiyor. Bu küçük tercih çok büyük bir rahatlık sağlar: altyapı değişse bile iş akışının kendisi yerinden oynamaz.
+Bu örnekte use-case sınıfı herhangi bir somut repository veya onay kanalı üretmiyor. Bu küçük tercih çok büyük bir rahatlık sağlar: altyapı değişse bile iş akışının kendisi yerinden oynamaz.
 
 ## 8. Avantajlar
 
