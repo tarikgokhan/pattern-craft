@@ -273,7 +273,7 @@ public static class Demo
             new(factory.GetOrCreate("Çam", "/textures/pine.png", "KoyuYeşil"), new TreePlacement(40, 8, 9))
         };
 
-        Console.WriteLine($"Aynı stil paylaşılıyor mu? {ReferenceEquals(oakStyle, anotherOakStyle)}");
+        Console.WriteLine($"Aynı stil paylaşılıyor mu? {(ReferenceEquals(oakStyle, anotherOakStyle) ? "Evet" : "Hayır")}");
 
         foreach (var tree in trees)
         {
