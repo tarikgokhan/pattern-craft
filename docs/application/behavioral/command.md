@@ -121,7 +121,8 @@ public sealed class CreateWorkshopRegistrationHandler
         }
         catch (ArgumentException exception)
         {
-            return CommandResult.Failure($"Command validation failed: {exception.Message}");
+            _ = exception;
+            return CommandResult.Failure("Command validation failed.");
         }
 
         await _repository.AddAsync(registration, cancellationToken);
@@ -134,7 +135,7 @@ public sealed class CreateWorkshopRegistrationHandler
         }
         catch (Exception)
         {
-            return CommandResult.Failure("Audit logging failed. Command pipeline should retry the operation.");
+            return CommandResult.Failure("Audit logging failed.");
         }
 
         return CommandResult.Success();
