@@ -1,118 +1,256 @@
 # Composite
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Structural Patterns |
-| Pattern | Composite |
-| Dosya Yolu | `docs/application/structural/composite.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Infrastructure, Application veya API sınırı |
+**Kategori:** Application Design Patterns → Structural Patterns  
+**Odak:** Tekil nesneleri ve nesne gruplarını aynı sözleşme üzerinden yönetmek
 
 ## 1. Kısa Tanım
 
-Composite, parça-bütün ilişkisini ağaç yapısında modeller.
+Composite, ağaç benzeri yapılarda yer alan tek bir öğe ile o öğelerin oluşturduğu kümeyi aynı arayüzden ele almayı sağlar.
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Bu desenin en güzel tarafı şudur: Kod, “bu bir yaprak mı, yoksa içinde başka parçalar da mı var?” sorusunu sürekli sormak zorunda kalmaz. Bir menü öğesi, bir klasör, bir sayfa bölümü ya da sahne akışındaki bir ana başlık; hepsi aynı kapıdan içeri girer.
 
 ## 2. Çözdüğü Problem
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+Hiyerarşik veriyle çalışan sistemlerde çoğu zaman iki ayrı yol oluşur:
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+- Tekil öğe için bir işleyiş
+- Alt öğeler barındıran yapı için başka bir işleyiş
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+Bu ayrım büyüdükçe kodda `if/else` blokları çoğalır, dolaşım mantığı dağılır ve yeni bir düğüm tipi eklendiğinde mevcut akışlar kırılgan hale gelir.
 
-## 3. Kurumsal Talep Yönetimi Örneği
+Composite bu problemi, hem yaprakları hem de bileşik düğümleri aynı sözleşmeye oturtarak çözer. Böylece istemci kod, karşısındaki nesnenin tek başına mı durduğunu yoksa altında başka düğümler mi taşıdığını bilmeden çalışabilir.
 
-Menü, yetki, organizasyon veya onay adımı gibi ağaç yapıları tekil nesne gibi yönetilir.
+## 3. Ne Zaman Kullanılır?
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+- Veri doğal olarak ağaç yapısında ilerliyorsa
+- Tekil nesne ve nesne grubuna aynı operasyonlar uygulanacaksa
+- UI menüsü, içerik ağacı, organizasyon şeması veya dosya yapısı gibi iç içe geçen modeller varsa
+- Dolaşım, toplam hesaplama, görünürlük üretme veya çıktı oluşturma mantığını merkezi hale getirmek isteniyorsa
+- Yeni düğüm türleri eklenirken istemci kodun mümkün olduğunca sabit kalması hedefleniyorsa
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+## 4. Gerçek Hayat Senaryosu
 
-`MenuNode`, `PermissionNode` veya `WorkflowStepNode` yapılarında kullanılabilir.
+Bir dijital müze rehberi düşünün. Ziyaretçi uygulamasında “Sergiler” ana başlığı var. Bunun altında “Rönesans Salonu”, “Modern Sanat”, “Çocuk Atölyesi” gibi bölümler bulunuyor. Her bölümün içinde de bazen başka alt bölümler, bazen yalnızca tekil eser kartları yer alıyor.
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+Eğer her seviyeyi ayrı ayrı ele alırsanız, ekran üretimi kısa sürede dallanıp budaklanır. Ama her öğeyi `IContentComponent` gibi ortak bir yapı altında toplarsanız, sistem bir üst başlığı da tek bir eser kartını da aynı yöntemle gezebilir. Kullanıcı için pürüzsüz bir akış oluşur; geliştirici içinse daha sakin bir kod tabanı.
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+## 5. UML / Mermaid Diyagramı
 
-## 5. Basit Akış
+```mermaid
+classDiagram
+    class IContentComponent {
+        <<interface>>
+        +string Title
+        +int GetReadingTimeInMinutes()
+        +void Render(StringBuilder builder, int depth)
+    }
 
-```text
-Root Node -> Child Nodes -> Leaf Nodes
+    class ArticlePage {
+        -int ReadingTimeInMinutes
+        +string Title
+        +int GetReadingTimeInMinutes()
+        +void Render(StringBuilder builder, int depth)
+    }
+
+    class ContentSection {
+        -List~IContentComponent~ _children
+        +string Title
+        +IReadOnlyCollection~IContentComponent~ Children
+        +void Add(IContentComponent component)
+        +int GetReadingTimeInMinutes()
+        +void Render(StringBuilder builder, int depth)
+    }
+
+    IContentComponent <|.. ArticlePage
+    IContentComponent <|.. ContentSection
+    ContentSection o-- IContentComponent
 ```
 
-## 6. Örnek Kod / Taslak
+## 6. C# Örnek Kodu
 
 ```csharp
-public sealed class MenuNode
-{
-    private readonly List<MenuNode> _children = [];
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
-    public MenuNode(string title)
+namespace PatternCraft.Structural.Composite;
+
+/// <summary>
+/// İçerik ağacındaki her düğüm için ortak davranışı tanımlar.
+/// </summary>
+public interface IContentComponent
+{
+    /// <summary>
+    /// Düğümün ekranda görünen başlığını alır.
+    /// </summary>
+    string Title { get; }
+
+    /// <summary>
+    /// Düğüm ve varsa alt düğümleri için toplam okuma süresini hesaplar.
+    /// </summary>
+    /// <returns>Toplam okuma süresi.</returns>
+    int GetReadingTimeInMinutes();
+
+    /// <summary>
+    /// Düğümü girintili metin olarak çıktılar.
+    /// </summary>
+    /// <param name="builder">Çıktının yazılacağı metin oluşturucu.</param>
+    /// <param name="depth">Mevcut ağaç derinliği.</param>
+    void Render(StringBuilder builder, int depth);
+}
+
+/// <summary>
+/// Alt öğe içermeyen tekil içerik sayfasını temsil eder.
+/// </summary>
+public sealed class ArticlePage : IContentComponent
+{
+    /// <summary>
+    /// <see cref="ArticlePage"/> sınıfının yeni bir örneğini başlatır.
+    /// </summary>
+    /// <param name="title">Sayfa başlığı.</param>
+    /// <param name="readingTimeInMinutes">Sayfanın tahmini okuma süresi.</param>
+    public ArticlePage(string title, int readingTimeInMinutes)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
+        if (readingTimeInMinutes < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(readingTimeInMinutes));
+        }
+
+        Title = title;
+        ReadingTimeInMinutes = readingTimeInMinutes;
+    }
+
+    /// <inheritdoc />
+    public string Title { get; }
+
+    private int ReadingTimeInMinutes { get; }
+
+    /// <inheritdoc />
+    public int GetReadingTimeInMinutes() => ReadingTimeInMinutes;
+
+    /// <inheritdoc />
+    public void Render(StringBuilder builder, int depth)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.Append(' ', depth * 2);
+        builder.AppendLine($"- {Title} ({ReadingTimeInMinutes} dk)");
+    }
+}
+
+/// <summary>
+/// Alt düğümler taşıyabilen içerik bölümünü temsil eder.
+/// </summary>
+public sealed class ContentSection : IContentComponent
+{
+    private readonly List<IContentComponent> _children = [];
+
+    /// <summary>
+    /// <see cref="ContentSection"/> sınıfının yeni bir örneğini başlatır.
+    /// </summary>
+    /// <param name="title">Bölüm başlığı.</param>
+    public ContentSection(string title)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
         Title = title;
     }
 
+    /// <inheritdoc />
     public string Title { get; }
 
-    public IReadOnlyCollection<MenuNode> Children => _children;
+    /// <summary>
+    /// Bölümün alt düğümlerini salt okunur olarak döner.
+    /// </summary>
+    public IReadOnlyCollection<IContentComponent> Children => _children;
 
-    public void Add(MenuNode child)
+    /// <summary>
+    /// Bölüme yeni bir alt düğüm ekler.
+    /// </summary>
+    /// <param name="component">Eklenecek içerik düğümü.</param>
+    public void Add(IContentComponent component)
     {
-        _children.Add(child);
+        ArgumentNullException.ThrowIfNull(component);
+        _children.Add(component);
+    }
+
+    /// <inheritdoc />
+    public int GetReadingTimeInMinutes() => _children.Sum(child => child.GetReadingTimeInMinutes());
+
+    /// <inheritdoc />
+    public void Render(StringBuilder builder, int depth)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.Append(' ', depth * 2);
+        builder.AppendLine($"+ {Title}");
+
+        foreach (IContentComponent child in _children)
+        {
+            child.Render(builder, depth + 1);
+        }
+    }
+}
+
+/// <summary>
+/// Composite yapısının örnek kullanım çıktısını üretir.
+/// </summary>
+public static class Demo
+{
+    /// <summary>
+    /// Müze rehberi ağacını oluşturur ve metin çıktısını döner.
+    /// </summary>
+    /// <returns>Örnek composite çıktısı.</returns>
+    public static string BuildMuseumGuide()
+    {
+        ContentSection root = new("Müze Rehberi");
+        ContentSection renaissanceHall = new("Rönesans Salonu");
+        ContentSection modernArt = new("Modern Sanat");
+
+        renaissanceHall.Add(new ArticlePage("Leonardo Köşesi", 4));
+        renaissanceHall.Add(new ArticlePage("Renk ve Perspektif", 6));
+
+        modernArt.Add(new ArticlePage("Soyut Formlar", 5));
+        modernArt.Add(new ArticlePage("Işıkla Çizilen Oda", 3));
+
+        root.Add(renaissanceHall);
+        root.Add(modernArt);
+
+        StringBuilder builder = new();
+        root.Render(builder, depth: 0);
+        builder.AppendLine($"Toplam süre: {root.GetReadingTimeInMinutes()} dk");
+
+        return builder.ToString();
     }
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+Bu örnekte `ArticlePage` bir yaprak düğümdür; `ContentSection` ise başka düğümler taşıyan composite yapıdır. İstemci kod, toplam süre hesabını da render işlemini de her iki tipe aynı sözleşme üzerinden uygular.
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+## 7. Avantajlar
 
-## 8. Ne Zaman Kullanılmamalıdır?
+- İstemci kodu, yaprak ve bileşik düğüm ayrımını daha az düşünür.
+- Yeni alt seviye yapılar eklemek kolaylaşır.
+- Recursive dolaşım ve toplama işlemleri merkezi hale gelir.
+- Menü, içerik ağacı ve benzeri hiyerarşiler daha okunur modellenir.
+- Birim testlerde hem tekil düğüm hem de ağaç davranışı ayrı ayrı doğrulanabilir.
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+## 8. Riskler ve Sınırlar
 
-## 9. Avantajlar
+- Her düğüme aynı arayüzü vermek bazen yapraklar için anlamsız üyeler üretmeye itebilir.
+- Çok derin ağaçlarda dolaşım maliyeti ve okunabilirlik dikkat ister.
+- Yanlış kullanıldığında model, “her şeyi içine alan” soyut bir yapıya dönüşebilir.
+- Çocuk yönetimi, sıralama ve silme kuralları iyi tanımlanmazsa composite sınıfı gereğinden fazla sorumluluk üstlenebilir.
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
+## 9. Test Edilebilirlik Notları
 
-## 10. Dikkat Edilecekler
+Composite deseni test yazmayı kolaylaştırır; çünkü yaprak davranışı ile ağaç davranışı temiz biçimde ayrılır.
 
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
+- `ArticlePage` için okuma süresi ve render çıktısı tek başına doğrulanabilir.
+- `ContentSection` için alt düğümlerin toplam süreye doğru katkı verdiği test edilebilir.
+- Boş bölüm, tek çocuklu bölüm ve çok seviyeli ağaç gibi kenar durumları rahatça kapsanabilir.
+- Ortak arayüz sayesinde fake veya stub düğümler üretmek kolaydır.
 
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+Özellikle .NET tarafında xUnit, NUnit veya MSTest ile recursive çıktı ve toplam hesaplama senaryoları küçük, anlaşılır testler halinde modellenebilir.
