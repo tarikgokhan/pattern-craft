@@ -1,112 +1,172 @@
 # Builder
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Creational Patterns |
-| Pattern | Builder |
-| Dosya Yolu | `docs/application/creational/builder.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application veya Infrastructure |
-
 ## 1. Kısa Tanım
 
-Builder, karmaşık nesneleri adım adım oluşturur.
+Builder, çok parçalı ve kuralları olan bir nesneyi tek seferde karmaşık constructor çağrılarıyla kurmak yerine, adım adım ve okunabilir bir akışla üretmeyi sağlar.
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Kısaca: Nesneyi "bir kerede doldur" yerine "anlamlı adımlarla hazırla, en sonda doğrula ve üret" yaklaşımıdır.
 
 ## 2. Çözdüğü Problem
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+Builder en çok şu noktada fark yaratır: Ortada tek bir nesne vardır ama bu nesnenin oluşması için zorunlu alanlar, opsiyonel tercihler ve birden fazla iş kuralı aynı anda devrededir.
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+Bu durumda constructor tabanlı yaklaşım hızla yorucu hale gelir:
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+- Parametre listesi uzar ve okunabilirlik düşer.
+- Parametre sırası hataları sessizce üretime sızabilir.
+- Hangi alanın zorunlu, hangisinin opsiyonel olduğu belirsizleşir.
+- Doğrulama mantığı farklı katmanlara dağılır.
 
-## 3. Kurumsal Talep Yönetimi Örneği
+Builder ise bu yükü tek yerde toplar:
 
-Yeni talep oluşturulurken başlık, açıklama, öncelik, ek bilgiler ve onay tercihleri adım adım hazırlanır.
+- Kurulum adımlarını niyet odaklı metotlarla görünür yapar.
+- `Build()` anında doğrulama yaparak geçersiz nesne üretimini engeller.
+- Aynı ürünün farklı varyasyonlarını tekrar etmeden oluşturmayı kolaylaştırır.
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+## 3. İş Modeli Örneği (Etkinlik Programı Yayınlama)
+
+Bir etkinlik platformunda "program yayınlama" komutu oluşturduğunuzu düşünün. Yayına çıkmak için etkinlik adı, tarih aralığı ve mekan zorunlu; konuşmacılar, canlı yayın linki, sponsor paketleri ve bildirim ayarları ise opsiyonel.
+
+Bu verileri tek constructor çağrısına sıkıştırmak yerine Builder ile adım adım topladığınızda akış doğal hale gelir: önce temel bilgileri kurar, sonra opsiyonel parçaları eklersiniz. `Build()` aşamasında da "yayınlanabilir program" kuralları merkezi olarak doğrulanır.
+
+Bu senaryoda Builder sadece estetik bir tercih değildir; geçersiz program üretimini azaltan ve kullanım akışını netleştiren kritik bir araçtır.
 
 ## 4. .NET İçinde Kullanım Yaklaşımı
 
-`RequestDraftBuilder`, `ReportQueryBuilder` veya test datası hazırlayan builder sınıflarında kullanılabilir.
+.NET tarafında Builder çoğunlukla `Command`, `Query`, `Options` veya test verisi üretiminde kullanılır.
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+Uygularken pratik bir denge kurmak önemlidir:
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+- Public API yüzeyini XML documentation comments ile açık tutun.
+- Builder içinde toplanan doğrulama kurallarını `Build()` aşamasında çalıştırın.
+- Ürünü mümkünse immutable olarak döndürün.
+- 2-3 alanlı basit modellerde Builder yazma refleksine kapılmayın; gerçekten karmaşa varsa kullanın.
 
 ## 5. Basit Akış
 
 ```text
-Client -> Builder -> Valid Request Draft -> Command Handler
+Client -> EventProgramBuilder -> Build() doğrulaması -> PublishEventProgramCommand
 ```
 
 ## 6. Örnek Kod / Taslak
 
 ```csharp
-public sealed class RequestDraftBuilder
+/// <summary>
+/// Etkinlik programı yayınlama komutunu adım adım oluşturan Builder sınıfı.
+/// </summary>
+public sealed class EventProgramBuilder
 {
-    private string _title = string.Empty;
-    private string _description = string.Empty;
-    private RequestPriority _priority = RequestPriority.Normal;
+    private string _eventName = string.Empty;
+    private DateTimeOffset? _startsAt;
+    private DateTimeOffset? _endsAt;
+    private string _venue = string.Empty;
+    private readonly List<string> _speakers = new();
+    private Uri? _liveStreamUrl;
 
-    public RequestDraftBuilder WithTitle(string title)
+    /// <summary>
+    /// Etkinlik adını ayarlar.
+    /// </summary>
+    public EventProgramBuilder WithEventName(string eventName)
     {
-        _title = title;
+        _eventName = eventName;
         return this;
     }
 
-    public RequestDraftBuilder WithDescription(string description)
+    /// <summary>
+    /// Etkinliğin başlangıç ve bitiş zamanını ayarlar.
+    /// </summary>
+    public EventProgramBuilder WithSchedule(DateTimeOffset startsAt, DateTimeOffset endsAt)
     {
-        _description = description;
+        _startsAt = startsAt;
+        _endsAt = endsAt;
         return this;
     }
 
-    public RequestDraftBuilder WithPriority(RequestPriority priority)
+    /// <summary>
+    /// Etkinliğin düzenleneceği mekanı ayarlar.
+    /// </summary>
+    public EventProgramBuilder AtVenue(string venue)
     {
-        _priority = priority;
+        _venue = venue;
         return this;
     }
 
-    public CreateRequestCommand Build()
+    /// <summary>
+    /// Programa bir konuşmacı ekler.
+    /// </summary>
+    public EventProgramBuilder AddSpeaker(string speaker)
     {
-        return new CreateRequestCommand(_title, _description, _priority);
+        _speakers.Add(speaker);
+        return this;
+    }
+
+    /// <summary>
+    /// Etkinlik için canlı yayın adresi tanımlar.
+    /// </summary>
+    public EventProgramBuilder WithLiveStream(Uri liveStreamUrl)
+    {
+        _liveStreamUrl = liveStreamUrl;
+        return this;
+    }
+
+    /// <summary>
+    /// Tüm zorunlu alanları doğrular ve komutu üretir.
+    /// </summary>
+    public PublishEventProgramCommand Build()
+    {
+        if (string.IsNullOrWhiteSpace(_eventName))
+        {
+            throw new InvalidOperationException("Event name is required.");
+        }
+
+        if (_startsAt is null || _endsAt is null || _startsAt >= _endsAt)
+        {
+            throw new InvalidOperationException("A valid schedule is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_venue))
+        {
+            throw new InvalidOperationException("Venue is required.");
+        }
+
+        return new PublishEventProgramCommand(
+            _eventName,
+            _startsAt.Value,
+            _endsAt.Value,
+            _venue,
+            _speakers.AsReadOnly(),
+            _liveStreamUrl);
     }
 }
+
+/// <summary>
+/// Yayınlanmaya hazır etkinlik programı komutunu temsil eder.
+/// </summary>
+public sealed record PublishEventProgramCommand(
+    string EventName,
+    DateTimeOffset StartsAt,
+    DateTimeOffset EndsAt,
+    string Venue,
+    IReadOnlyCollection<string> Speakers,
+    Uri? LiveStreamUrl);
 ```
 
 ## 7. Ne Zaman Kullanılır?
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+- Nesne üretimi 6-7 adımı geçiyor ve okunabilirlik hızla düşüyorsa
+- Zorunlu/opsiyonel alan ayrımı belirgin şekilde yönetilmek isteniyorsa
+- `Build()` aşamasında merkezi doğrulama ile geçersiz nesneler engellenmek isteniyorsa
+- Aynı ürünün farklı varyantları (ör. canlı yayınlı / yayınsız program) tekrar etmeden üretilecekse
 
 ## 8. Ne Zaman Kullanılmamalıdır?
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Model çok basitse ve tek constructor veya object initializer yeterliyse
+- Ek bir builder sınıfı, çözdüğünden daha fazla karmaşıklık getiriyorsa
+- Varyasyon ihtiyacı yoksa ve doğrulama yükü minimalse
 
 ## 9. Avantajlar
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
+- Oluşturma akışını okunur ve niyet odaklı hale getirir.
+- Geçersiz nesne üretimini `Build()` noktasında azaltır.
+- Karmaşık kurulum mantığını tek bir yerde toplar.
+- Yeni varyasyonlar eklendiğinde mevcut çağrıları daha az etkiler.
