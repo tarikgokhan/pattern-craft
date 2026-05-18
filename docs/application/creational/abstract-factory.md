@@ -1,5 +1,5 @@
 # Abstract Factory Tasarım Deseni
-
+![Pattern Craft - Design Patterns Overview](assets/images/abstract-factory.png)
 > **Kategori:** Application Design Patterns / Creational Patterns  
 > **Platform:** .NET / C#  
 > **Seviye:** Orta  
