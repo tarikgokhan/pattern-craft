@@ -20,7 +20,7 @@ Bu noktada Singleton aşağıdaki dağınıklığı azaltır:
 
 Bir etkinlik platformunda düşünelim: sistemde konser, konferans ve atölye yayınları için bildirim metin şablonları kullanılıyor. Bu şablonların aynı versiyonla ve aynı kurallarla uygulanması gerekiyor.
 
-Eğer her handler kendi şablon sözlüğünü üretirse metinler farklılaşır, bazı kullanıcılar eski içerik görür, bazıları yeni. Singleton bir `TemplateRegistry` ile bu karmaşayı bitirir: tek merkezden yükleme yapılır, herkes aynı kaynağı okur.
+Eğer her handler kendi şablon sözlüğünü üretirse metinler farklılaşır, bazı kullanıcılar eski içerik görür, bazıları yeni. Singleton bir `NotificationTemplateRegistry` ile bu karmaşayı bitirir: tek merkezden yükleme yapılır, herkes aynı kaynağı okur.
 
 ## 4. .NET İçinde Kullanım Yaklaşımı
 
@@ -79,7 +79,7 @@ public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
         {
             ["event-published"] = "Yeni etkinlik yayında: {title}",
             ["event-reminder"] = "Etkinlik başlamak üzere: {title}"
-        }.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase);
+        }.ToImmutableDictionary();
 
     /// <summary>
     /// İstenen anahtar için şablon metnini getirir.
