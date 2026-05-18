@@ -1,110 +1,220 @@
 # Command
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Behavioral Patterns |
-| Pattern | Command |
-| Dosya Yolu | `docs/application/behavioral/command.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application ve Domain davranışları |
-
 ## 1. Kısa Tanım
 
-Command, bir işlemi nesne olarak temsil eder.
-
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Command, bir isteği nesneye dönüştürür. Böylece “hangi iş yapılacak?” sorusu, işi çağıran koddan ayrılır; kuyruklama, loglama, geri alma (undo) ve yeniden çalıştırma (redo) gibi yetenekler daha doğal hale gelir.
 
 ## 2. Çözdüğü Problem
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+Bazı kodlarda aynı sahneyi tekrar tekrar görürüz: endpoint bir karar verir, servis başka bir karar verir, ardından iş kuralları dağılıp gider. Birkaç sprint sonra aynı akışa yeni adım eklemek küçük bir düzenleme olmaktan çıkar.
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+Command bu dağınıklığı toplar:
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+- İstek bir `Command` nesnesinde taşınır.
+- İşin nasıl yapılacağı `Handler` içinde yaşar.
+- Çağıran taraf (API/UI) yalnızca komutu üretir ve gönderir.
 
-## 3. Kurumsal Talep Yönetimi Örneği
+Bu ayrım .NET tarafında özellikle CQRS/MediatR yaklaşımıyla çok iyi oturur.
 
-Talep oluşturma, onaya gönderme veya talebi iptal etme gibi state değiştiren işlemler command nesnesiyle temsil edilir.
+## 3. Ne Zaman Kullanılır?
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+- Aynı iş akışı farklı kanallardan (API, worker, zamanlanmış görev) tetikleniyorsa
+- İşlemleri kuyruklamak veya geçmişe dönük izlemek gerekiyorsa
+- “Geri al” veya “yeniden dene” beklentisi varsa
+- Controller/Application Service sınıfları gereğinden fazla şişmeye başladıysa
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+## 4. Avantajlar ve Riskler
 
-CQRS ve MediatR kullanımında `CreateRequestCommand`, `SubmitRequestCommand` gibi modellerle uygulanır.
+### Avantajlar
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+- Sorumlulukları net ayırır, kodu okunur kılar.
+- İş akışlarını bağımsız test etmeyi kolaylaştırır.
+- Kuyruklama, loglama, retry gibi çapraz ihtiyaçlara alan açar.
+- Yeni komut eklerken mevcut akışa dokunma ihtiyacını azaltır.
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+### Riskler
 
-## 5. Basit Akış
+- Çok basit senaryolarda gereksiz soyutlama üretebilir.
+- Yanlış isimlendirme (`DoWorkCommand` gibi belirsiz adlar) modeli hızla anlaşılmaz hale getirir.
+- Handler içinde fazla teknik detay birikirse desenin sağladığı sadelik kaybolur.
 
-```text
-API -> Command -> Command Handler -> Domain Model
+## 5. Mermaid Diyagramı
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant B as CommandBus
+    participant H as CreateWorkshopRegistrationHandler
+    participant R as IWorkshopRegistrationRepository
+    participant L as IAuditLogWriter
+
+    C->>B: CreateWorkshopRegistrationCommand gönder
+    B->>H: Handle(command)
+    H->>R: AddAsync(registration)
+    H->>L: WriteAsync("RegistrationCreated")
+    H-->>B: CommandResult.Success
+    B-->>C: Sonuç döndür
 ```
 
-## 6. Örnek Kod / Taslak
+## 6. C# Örnek Kodu (.NET)
 
 ```csharp
-public sealed record SubmitRequestCommand(Guid RequestId, string SubmittedBy);
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
-public sealed class SubmitRequestCommandHandler
+/// <summary>
+/// Atölye kaydı oluşturma isteğini temsil eden komuttur.
+/// </summary>
+/// <param name="WorkshopId">Kayıt yapılacak atölye kimliği.</param>
+/// <param name="ParticipantEmail">Katılımcı e-posta adresi.</param>
+public sealed record CreateWorkshopRegistrationCommand(
+    Guid WorkshopId,
+    string ParticipantEmail);
+
+/// <summary>
+/// Komut işleyicileri için temel sözleşmeyi tanımlar.
+/// </summary>
+/// <typeparam name="TCommand">İşlenecek komut türü.</typeparam>
+public interface ICommandHandler<in TCommand>
 {
-    public Task<Result> Handle(SubmitRequestCommand command, CancellationToken cancellationToken)
+    /// <summary>
+    /// Verilen komutu işler.
+    /// </summary>
+    /// <param name="command">İşlenecek komut.</param>
+    /// <param name="cancellationToken">İşlemi iptal etmek için kullanılan token.</param>
+    /// <returns>İşlem sonucunu temsil eden değer.</returns>
+    Task<CommandResult> HandleAsync(TCommand command, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Atölye kayıt ekleme operasyonunu yürüten command handler'dır.
+/// </summary>
+public sealed class CreateWorkshopRegistrationHandler
+    : ICommandHandler<CreateWorkshopRegistrationCommand>
+{
+    private readonly IWorkshopRegistrationRepository _repository;
+    private readonly IAuditLogWriter _auditLogWriter;
+
+    /// <summary>
+    /// Handler bağımlılıklarını alır.
+    /// </summary>
+    /// <param name="repository">Kayıtların kalıcı olarak saklandığı depo.</param>
+    /// <param name="auditLogWriter">Denetim kaydı yazıcısı.</param>
+    public CreateWorkshopRegistrationHandler(
+        IWorkshopRegistrationRepository repository,
+        IAuditLogWriter auditLogWriter)
     {
-        // Load aggregate, apply domain behavior and commit.
-        return Task.FromResult(Result.Success());
+        _repository = repository;
+        _auditLogWriter = auditLogWriter;
     }
+
+    /// <inheritdoc />
+    public async Task<CommandResult> HandleAsync(
+        CreateWorkshopRegistrationCommand command,
+        CancellationToken cancellationToken)
+    {
+        var registration = WorkshopRegistration.Create(command.WorkshopId, command.ParticipantEmail);
+
+        await _repository.AddAsync(registration, cancellationToken);
+        await _auditLogWriter.WriteAsync(
+            $"Workshop registration created: {registration.Id}",
+            cancellationToken);
+
+        return CommandResult.Success();
+    }
+}
+
+/// <summary>
+/// Komut işleme sonucunu temsil eder.
+/// </summary>
+public sealed record CommandResult(bool IsSuccess, string? Error)
+{
+    /// <summary>
+    /// Başarılı bir sonuç üretir.
+    /// </summary>
+    /// <returns>Başarılı command sonucu.</returns>
+    public static CommandResult Success() => new(true, null);
+}
+
+/// <summary>
+/// Atölye kayıt deposu sözleşmesini tanımlar.
+/// </summary>
+public interface IWorkshopRegistrationRepository
+{
+    /// <summary>
+    /// Yeni kaydı kalıcı depoya ekler.
+    /// </summary>
+    /// <param name="registration">Eklenecek kayıt nesnesi.</param>
+    /// <param name="cancellationToken">İşlemi iptal etmek için kullanılan token.</param>
+    Task AddAsync(WorkshopRegistration registration, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Audit kayıt yazma sözleşmesini tanımlar.
+/// </summary>
+public interface IAuditLogWriter
+{
+    /// <summary>
+    /// Verilen mesajı audit kaydı olarak yazar.
+    /// </summary>
+    /// <param name="message">Yazılacak açıklama metni.</param>
+    /// <param name="cancellationToken">İşlemi iptal etmek için kullanılan token.</param>
+    Task WriteAsync(string message, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Atölye kaydını temsil eden domain modelidir.
+/// </summary>
+public sealed class WorkshopRegistration
+{
+    /// <summary>
+    /// Kayıt kimliğini alır.
+    /// </summary>
+    public Guid Id { get; private init; }
+
+    /// <summary>
+    /// Atölye kimliğini alır.
+    /// </summary>
+    public Guid WorkshopId { get; private init; }
+
+    /// <summary>
+    /// Katılımcı e-posta adresini alır.
+    /// </summary>
+    public string ParticipantEmail { get; private init; } = string.Empty;
+
+    private WorkshopRegistration()
+    {
+    }
+
+    /// <summary>
+    /// Yeni bir atölye kaydı oluşturur.
+    /// </summary>
+    /// <param name="workshopId">Atölye kimliği.</param>
+    /// <param name="participantEmail">Katılımcı e-posta adresi.</param>
+    /// <returns>Yeni oluşturulan kayıt nesnesi.</returns>
+    public static WorkshopRegistration Create(Guid workshopId, string participantEmail) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            WorkshopId = workshopId,
+            ParticipantEmail = participantEmail
+        };
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+## 7. Gerçek Hayat Senaryosu (Finans Dışı)
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+Bir eğitim platformunda kullanıcılar atölyelere kayıt oluyor. Web uygulaması, mobil uygulama ve bir partner portalı aynı kaydı farklı noktalardan tetikleyebiliyor.  
 
-## 8. Ne Zaman Kullanılmamalıdır?
+`CreateWorkshopRegistrationCommand` kullanıldığında tüm kanallar tek bir iş akışına bağlanır. Böylece:
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Kayıt adımı her kanalda aynı kurallarla çalışır.
+- Audit log her işlemde standart şekilde tutulur.
+- Yarın “kayıt sonrası hoş geldin e-postası kuyruğa yazılsın” denildiğinde yalnızca ilgili handler akışı genişletilir.
 
-## 9. Avantajlar
+## 8. Test Edilebilirlik Notları
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
-
-## 10. Dikkat Edilecekler
-
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
-
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+- Handler bağımlılıkları interface üzerinden geçtiği için mock/fake ile kolayca izole edilir.
+- “Repository çağrıldı mı, audit yazıldı mı?” gibi doğrulamalar unit testte net biçimde yapılır.
+- Hata senaryolarında `CommandResult` üzerinden davranış kontrolü sağlanır; exception ve sonuç politikası açıkça test edilir.
