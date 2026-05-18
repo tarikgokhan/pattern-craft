@@ -492,13 +492,31 @@ Abstract Factory aşağıdaki teknik alanlarda kullanılabilir:
 
 ## 17. Test Edilebilirlik Notları
 
-Abstract Factory aşağıdaki soruya “evet” cevabı verildiğinde güçlü bir adaydır:
+Abstract Factory çok kullanışlı bir pattern olmasına rağmen, test yazılırken ve mock'larken aşağıdaki noktaları göz önünde bulundurmalısınız:
+
+1. **Mock Factory Oluşturma:** Test sırasında test-specific factory oluşturmak kolaydır:
+   ```csharp
+   var mockFactory = new MockComponentFactory(
+       button: new StubButton(),
+       card: new StubPaymentCard(),
+       notification: new StubNotification());
+   ```
+
+2. **Bağımlılık Enjeksiyonu:** Factory'nin interface olması test yazmayı kolaylaştırır.
+
+3. **İzolasyon:** Her kanal/format kendi test'ini alabilir. Mobil için unittest, web için unittest ayrı yazılabilir.
+
+---
+
+## 18. Kullanım Kararı
+
+Abstract Factory aşağıdaki soruya "evet" cevabı verildiğinde güçlü bir adaydır:
 
 > Aynı bağlam içinde birlikte çalışması gereken birden fazla nesneyi, farklı aileler halinde üretmem gerekiyor mu?
 
-Eğer sadece tek nesne üretilecekse çoğu zaman **Factory Method** yeterlidir.
-
-Eğer birlikte değişen ve uyumlu kalması gereken birden fazla nesne varsa **Abstract Factory** daha doğru bir çözümdür.
+- Eğer sadece tek nesne üretilecekse → **Factory Method** yeterli olabilir.
+- Eğer birlikte değişen ve uyumlu kalması gereken birden fazla nesne varsa → **Abstract Factory** tercih edilir.
+- Eğer henüz tek bir implementasyon varsa → Gerçekten ihtiyaç doğduğunda refactor yapılabilir.
 
 ---
 
