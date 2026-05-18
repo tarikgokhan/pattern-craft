@@ -155,8 +155,7 @@ public sealed class TreeStyle
     /// <returns>Çizim sonucunu temsil eden metni döner.</returns>
     public string Render(TreePlacement placement)
     {
-        return $"{Species} ağacı ({placement.X}, {placement.Y}) noktasında, {placement.HeightInMeters} metre yükseklikle çizildi. " +
-               $"Doku={TexturePath}, YaprakRengi={LeafColor}";
+        return $"{Species} ağacı ({placement.X}, {placement.Y}) noktasında, {placement.HeightInMeters} metre yükseklikle çizildi. Doku={TexturePath}, YaprakRengi={LeafColor}";
     }
 }
 
@@ -214,7 +213,7 @@ public sealed class TreeStyleFactory
 
         return _styles.GetOrAdd(
             key,
-            static styleKey => new TreeStyle(styleKey.Species, styleKey.TexturePath, styleKey.LeafColor));
+            styleKey => new TreeStyle(styleKey.Species, styleKey.TexturePath, styleKey.LeafColor));
     }
 }
 
