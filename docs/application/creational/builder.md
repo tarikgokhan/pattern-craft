@@ -2,7 +2,7 @@
 
 ## 1. Kısa Tanım
 
-Builder, çok parçalı ve kurallı bir nesneyi tek seferde karmaşık constructor çağrılarıyla kurmak yerine, adım adım ve okunabilir bir akışla üretmeyi sağlar.
+Builder, çok parçalı ve kuralları olan bir nesneyi tek seferde karmaşık constructor çağrılarıyla kurmak yerine, adım adım ve okunabilir bir akışla üretmeyi sağlar.
 
 Kısaca: Nesneyi "bir kerede doldur" yerine "anlamlı adımlarla hazırla, en sonda doğrula ve üret" yaklaşımıdır.
 
