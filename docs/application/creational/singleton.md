@@ -85,7 +85,8 @@ public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
 
     /// <summary>
     /// İstenen anahtar için ham şablon metnini getirir.
-    /// Dönen metindeki `{eventTitle}` gibi placeholder'lar çağıran tarafta doldurulur.
+    /// Dönen metindeki `{eventTitle}` gibi placeholder'lar çağıran tarafta
+    /// `template.Replace("{eventTitle}", value)` benzeri bir yaklaşımla doldurulur.
     /// </summary>
     public string Get(string templateKey)
     {
@@ -113,6 +114,8 @@ public static class NotificationRegistrationExtensions
     }
 }
 ```
+
+Bu örnek bilerek sabit bir şablon kümesiyle tutuldu. Üretimde şablonları veritabanı veya konfigürasyondan yüklemek isterseniz, aynı sınıf DI üzerinden gerekli bağımlılıkları constructor ile alacak şekilde genişletilebilir.
 
 ## 7. Ne Zaman Kullanılır?
 
