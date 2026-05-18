@@ -27,7 +27,7 @@ Dependency Injection bu düğümü çözer. Sınıf yalnızca “neye ihtiyacı 
 
 ## 4. Gerçek Hayattan Bir Senaryo
 
-Bir yaratıcı atölyesi rezervasyon platformu düşünün. Kullanıcı bir seramik atölyesi için rezervasyon yaptığında sistemin iki temel işi vardır: rezervasyonu kaydetmek ve katılımcıya onay mesajı göndermek.
+Yaratıcı bir atölye rezervasyon platformu düşünün. Kullanıcı bir seramik atölyesi için rezervasyon yaptığında sistemin iki temel işi vardır: rezervasyonu kaydetmek ve katılımcıya onay mesajı göndermek.
 
 Eğer `WorkshopReservationService` bu servislerin hepsini kendi içinde üretürse, sınıf kısa sürede küçük bir orkestradan çok tek kişilik bir sahne gösterisine dönüşür. Oysa bağımlılıklar dışarıdan verildiğinde servis yalnızca akışı yönetir: “rezervasyonu kaydet, mesajı gönder, işlem tamam.” Bu yapı hem okunur hem de kolayca test edilir.
 
@@ -153,8 +153,8 @@ public sealed class CreateWorkshopReservationUseCase
         IWorkshopReservationRepository repository,
         IConfirmationChannel confirmationChannel)
     {
-        ArgumentNullException.ThrowIfNull(repository);
-        ArgumentNullException.ThrowIfNull(confirmationChannel);
+        ArgumentNullException.ThrowIfNull(repository, nameof(repository));
+        ArgumentNullException.ThrowIfNull(confirmationChannel, nameof(confirmationChannel));
 
         _repository = repository;
         _confirmationChannel = confirmationChannel;
@@ -170,7 +170,7 @@ public sealed class CreateWorkshopReservationUseCase
         WorkshopReservationRequest request,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request, nameof(request));
 
         await _repository.SaveAsync(request, cancellationToken);
         await _confirmationChannel.SendReservationConfirmedAsync(
