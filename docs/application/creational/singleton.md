@@ -1,102 +1,149 @@
 # Singleton
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Creational Patterns |
-| Pattern | Singleton |
-| Dosya Yolu | `docs/application/creational/singleton.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application veya Infrastructure |
-
 ## 1. Kısa Tanım
 
-Singleton, bir sınıftan uygulama boyunca tek instance kullanılmasını sağlar.
+Singleton, bir sınıfın uygulama yaşam döngüsü boyunca tek bir örnekle çalışmasını sağlar.
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+İyi uygulandığında “her yerde yeni nesne üretme” alışkanlığını keser, paylaşılan davranışı merkezi hale getirir ve ekipte “bu sorumluluğun sahibi neresi?” sorusuna net cevap verir.
 
 ## 2. Çözdüğü Problem
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+Bazı bileşenler doğası gereği uygulama boyunca tek bir merkezden yönetilmelidir: örneğin şablon kayıtları, uygulama içi sabit konfigürasyon yorumlayıcıları veya tek noktadan çalışan isimlendirme stratejileri.
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+Bu noktada Singleton aşağıdaki dağınıklığı azaltır:
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+- Aynı sorumluluk için birden fazla nesnenin farklı state üretmesi
+- Global davranışın rastgele noktalardan değiştirilebilmesi
+- “Bu veri nereden geliyor?” sorusunun kod içinde izini kaybetmek
 
-## 3. Kurumsal Talep Yönetimi Örneği
+## 3. İş Modeli Örneği (Etkinlik Bildirim Merkezi)
 
-Uygulama boyunca state tutmayan saat sağlayıcı, format sağlayıcı veya lookup cache gibi servisler tek instance çalışabilir.
+Bir etkinlik platformunda düşünelim: sistemde konser, konferans ve atölye yayınları için bildirim metin şablonları kullanılıyor. Bu şablonların aynı versiyonla ve aynı kurallarla uygulanması gerekiyor.
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+Eğer her handler kendi şablon sözlüğünü üretirse metinler farklılaşır, bazı kullanıcılar eski içerik görür, bazıları yeni. Singleton bir `TemplateRegistry` ile bu karmaşayı bitirir: tek merkezden yükleme yapılır, herkes aynı kaynağı okur.
 
 ## 4. .NET İçinde Kullanım Yaklaşımı
 
 ASP.NET Core DI içinde `AddSingleton<TService, TImplementation>()` lifetime karşılığıdır.
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+Uygulama yapılırken bu denge önemlidir:
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+- Singleton sınıfı gerçekten tekil bir sorumluluk taşımalıdır.
+- Mümkünse stateless veya kontrollü state ile çalışmalıdır.
+- Public API yüzeyi XML documentation comments ile açık olmalıdır.
+- Testlerde doğrudan singletona kilitlenmek yerine arayüz üzerinden bağımlılık verilmelidir.
 
-## 5. Basit Akış
+## 5. Mermaid Diyagramı
 
-```text
-Application Startup -> Singleton Registration -> Shared Stateless Service
+```mermaid
+classDiagram
+    class INotificationTemplateRegistry {
+      <<interface>>
+      +string Get(string templateKey)
+    }
+
+    class NotificationTemplateRegistry {
+      -Lazy~NotificationTemplateRegistry~ _lazy
+      -Dictionary~string,string~ _templates
+      -NotificationTemplateRegistry()
+      +NotificationTemplateRegistry Instance
+      +string Get(string templateKey)
+    }
+
+    INotificationTemplateRegistry <|.. NotificationTemplateRegistry
 ```
 
 ## 6. Örnek Kod / Taslak
 
 ```csharp
-builder.Services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
-builder.Services.AddSingleton<ILookupCache, InMemoryLookupCache>();
+using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
+
+/// <summary>
+/// Bildirim şablonlarına tek merkezden erişim sağlayan kayıt sözleşmesi.
+/// </summary>
+public interface INotificationTemplateRegistry
+{
+    /// <summary>
+    /// Anahtara karşılık gelen şablon metnini döndürür.
+    /// </summary>
+    string Get(string templateKey);
+}
+
+/// <summary>
+/// Uygulama genelinde tek örnek olarak çalışan şablon kayıt merkezi.
+/// </summary>
+public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
+{
+    private static readonly Lazy<NotificationTemplateRegistry> _lazy =
+        new(() => new NotificationTemplateRegistry());
+
+    private readonly Dictionary<string, string> _templates = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["event-published"] = "Yeni etkinlik yayında: {title}",
+        ["event-reminder"] = "Etkinlik başlamak üzere: {title}"
+    };
+
+    /// <summary>
+    /// Singleton örneğini döndürür.
+    /// </summary>
+    public static NotificationTemplateRegistry Instance => _lazy.Value;
+
+    private NotificationTemplateRegistry()
+    {
+    }
+
+    /// <summary>
+    /// İstenen anahtar için şablon metnini getirir.
+    /// </summary>
+    public string Get(string templateKey)
+    {
+        if (!_templates.TryGetValue(templateKey, out var template))
+        {
+            throw new KeyNotFoundException($"Template not found: {templateKey}");
+        }
+
+        return template;
+    }
+}
+
+/// <summary>
+/// DI kaydında Singleton lifetime kullanım örneğini gösterir.
+/// </summary>
+public static class ServiceCollectionRegistration
+{
+    /// <summary>
+    /// Bildirim servislerini Singleton yaşam döngüsü ile kaydeder.
+    /// </summary>
+    public static void Register(IServiceCollection services)
+    {
+        services.AddSingleton<INotificationTemplateRegistry>(_ => NotificationTemplateRegistry.Instance);
+    }
+}
 ```
 
 ## 7. Ne Zaman Kullanılır?
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+- Uygulama boyunca tek bir merkezi davranışın korunması gerekiyorsa
+- Aynı verinin farklı sınıflarda tekrar tekrar yüklenmesi maliyet üretiyorsa
+- Tutarlılık için tek kaynak yaklaşımı kritikse
 
-## 8. Ne Zaman Kullanılmamalıdır?
+## 8. Avantajlar
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Tek bir erişim noktası sunar.
+- Paylaşılan davranışta tutarlılık sağlar.
+- Gereksiz nesne üretimini azaltarak performansı destekleyebilir.
+- Mimari niyeti görünür hale getirir.
 
-## 9. Avantajlar
+## 9. Riskler ve Trade-off'lar
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
+- Aşırı kullanıldığında global state hissi oluşturabilir.
+- Gizli bağımlılıklara yol açarsa testleri kırılganlaştırabilir.
+- Yaşam döngüsü yanlış seçilirse bellek ve eşzamanlılık sorunları üretebilir.
 
-## 10. Dikkat Edilecekler
+## 10. Test Edilebilirlik Notları
 
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
-
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+- Singleton sınıfını doğrudan her yere çağırmak yerine arayüzü enjekte edin.
+- Test senaryolarında `INotificationTemplateRegistry` için fake/stub kullanın.
+- Paylaşılan state varsa test başlangıcında deterministik reset stratejisi uygulayın.
