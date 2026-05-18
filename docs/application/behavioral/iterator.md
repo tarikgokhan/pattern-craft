@@ -1,104 +1,147 @@
 # Iterator
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Behavioral Patterns |
-| Pattern | Iterator |
-| Dosya Yolu | `docs/application/behavioral/iterator.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application ve Domain davranışları |
+Iterator, bir koleksiyonun iç yapısını açmadan elemanları sırayla dolaşmayı sağlar. Yani "veriyi nasıl tuttuğunu" değil, "veriyi nasıl gezeceğini" konuşursunuz.
 
-## 1. Kısa Tanım
+**Kategori:** Application Design Patterns → Behavioral Patterns  
+**Seviye:** Easy  
+**Odak:** .NET / C#
 
-Iterator, koleksiyonlar üzerinde standart gezinme mekanizması sağlar.
+## Problem Tanımı
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Koleksiyon büyüdükçe dolaşım kuralları da çeşitlenir: sadece aktif kayıtlar, sayfalı gezinme, ters sıra, filtrelenmiş akış, asenkron okuma...
 
-## 2. Çözdüğü Problem
+Bu kurallar doğrudan koleksiyon sınıfına ya da servis metodlarına gömülünce kod hızla hantallaşır. Iterator deseni, dolaşım davranışını ayrı bir soyutlamaya alarak hem koleksiyonun hem de tüketen kodun sade kalmasını sağlar.
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+## Ne Zaman Kullanılır?
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+- Aynı veri üzerinde birden fazla gezinme stratejisi gerekiyorsa (normal, ters, filtreli, sayfalı)
+- Tüketen kodun koleksiyonun iç temsilini bilmesini istemiyorsanız
+- `foreach`, `yield return`, `IEnumerable<T>`, `IAsyncEnumerable<T>` gibi .NET mekanizmalarını net bir tasarımla kullanmak istiyorsanız
+- Testlerde veri akışını kontrollü şekilde simüle etmek istiyorsanız
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+## Gerçek Hayat Senaryosu (Finans Dışı)
 
-## 3. Kurumsal Talep Yönetimi Örneği
+Bir etkinlik yönetim platformunda organizatör paneli düşünün. Panel, katılımcıları tek seferde yüklemek yerine sayfa sayfa geziyor:
 
-Sayfalı talep listeleri veya rapor kayıtları standart bir gezinme modeliyle okunur.
+- İlk iterasyon: sadece check-in yapmamış katılımcılar
+- İkinci iterasyon: VIP katılımcılar
+- Üçüncü iterasyon: son 24 saatte kayıt olanlar
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+Panelin ekran kodu, bu listelerin veritabanından nasıl çekildiğini bilmeden yalnızca iterator üzerinden kayıtları işler. Böylece veri kaynağı değişse bile (SQL, API, cache), ekran tarafı büyük ölçüde aynı kalır.
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+## UML / Mermaid Diyagramı
 
-.NET tarafında `IEnumerable<T>`, `IAsyncEnumerable<T>` ve `foreach` doğal karşılıklardır.
+```mermaid
+classDiagram
+    class Iterator~T~ {
+        <<interface>>
+        +bool MoveNext()
+        +T Current
+        +void Reset()
+    }
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+    class IterableCollection~T~ {
+        <<interface>>
+        +Iterator~T~ CreateIterator()
+    }
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+    class ParticipantCollection {
+        -List~Participant~ _items
+        +Iterator~Participant~ CreateIterator()
+    }
 
-## 5. Basit Akış
+    class ParticipantIterator {
+        -ParticipantCollection _collection
+        -int _index
+        +bool MoveNext()
+        +Participant Current
+        +void Reset()
+    }
 
-```text
-Collection -> Iterator -> Item by Item Processing
+    IterableCollection~T~ <|.. ParticipantCollection
+    Iterator~T~ <|.. ParticipantIterator
+    ParticipantCollection --> ParticipantIterator
 ```
 
-## 6. Örnek Kod / Taslak
+## C# Örnek Kodu (.NET)
+
+Aşağıdaki örnek derlenebilir bir iterator akışı gösterir:
 
 ```csharp
-await foreach (var request in requestReader.ReadPendingRequestsAsync(cancellationToken))
+using System;
+using System.Collections;
+using System.Collections.Generic;
+
+namespace PatternCraft.IteratorExample;
+
+/// <summary>
+/// Etkinlik katılımcısını temsil eder.
+/// </summary>
+public sealed record Participant(string FullName, bool CheckedIn);
+
+/// <summary>
+/// Katılımcı koleksiyonunu dış dünyaya yalnızca iterator davranışıyla açar.
+/// </summary>
+public sealed class ParticipantCollection : IEnumerable<Participant>
 {
-    await processor.ProcessAsync(request, cancellationToken);
+    private readonly List<Participant> _items = new();
+
+    /// <summary>
+    /// Koleksiyona yeni bir katılımcı ekler.
+    /// </summary>
+    /// <param name="participant">Eklenecek katılımcı.</param>
+    public void Add(Participant participant) => _items.Add(participant);
+
+    /// <summary>
+    /// Koleksiyonun iterator'ını döner.
+    /// </summary>
+    /// <returns>Katılımcılar üzerinde dolaşan enumerator.</returns>
+    public IEnumerator<Participant> GetEnumerator()
+    {
+        foreach (var participant in _items)
+        {
+            yield return participant;
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+public static class Demo
+{
+    public static void Main()
+    {
+        var participants = new ParticipantCollection();
+        participants.Add(new Participant("Aylin Demir", CheckedIn: false));
+        participants.Add(new Participant("Kerem Yıldız", CheckedIn: true));
+        participants.Add(new Participant("Mina Kaya", CheckedIn: false));
+
+        foreach (var participant in participants)
+        {
+            if (!participant.CheckedIn)
+            {
+                Console.WriteLine($"Bekleyen check-in: {participant.FullName}");
+            }
+        }
+    }
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+## Avantajlar
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+- Koleksiyon yapısı ile dolaşım davranışını ayırır
+- `foreach` uyumluluğu sayesinde tüketen kodu sadeleştirir
+- Yeni gezinme kuralları eklenirken mevcut kodu daha az etkiler
+- Birim testlerde farklı iterator davranışlarını izole etmeyi kolaylaştırır
 
-## 8. Ne Zaman Kullanılmamalıdır?
+## Riskler ve Sınırlamalar
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Basit bir liste ihtiyacı için gereksiz soyutlama oluşturabilir
+- Çok sayıda özel iterator tipi, kod tabanında dağınıklık yaratabilir
+- Uzun ömürlü iteratorlarda koleksiyonun eşzamanlı değişimi dikkatle yönetilmelidir
 
-## 9. Avantajlar
+## Test Edilebilirlik Notları
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
-
-## 10. Dikkat Edilecekler
-
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
-
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+- Iterator kullanan servisler, `IEnumerable<T>`/`IAsyncEnumerable<T>` üzerinden kolayca mock/fake edilebilir
+- Sınır durumları özellikle test edilmelidir: boş koleksiyon, tek eleman, büyük veri seti
+- Akış temelli testlerde "sıra" beklentisi açıkça doğrulanmalıdır
