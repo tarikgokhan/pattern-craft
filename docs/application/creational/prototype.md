@@ -64,7 +64,7 @@ public sealed record WorkshopTemplate(
 {
     /// <summary>
     /// Atölye şablonunun güvenli bir kopyasını üretir.
-    /// String alanlar immutable olduğu için materyal listesi için dizi kopyası yeterlidir.
+    /// Materials listesi shallow copy olarak çoğaltılır; string immutable olduğu için bu yaklaşım güvenlidir.
     /// </summary>
     public WorkshopTemplate Clone()
     {
