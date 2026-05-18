@@ -60,6 +60,7 @@ sequenceDiagram
 
 ```csharp
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -119,10 +120,9 @@ public sealed class CreateWorkshopRegistrationHandler
         {
             registration = WorkshopRegistration.Create(command.WorkshopId, command.ParticipantEmail);
         }
-        catch (ArgumentException exception)
+        catch (ArgumentException)
         {
-            _ = exception;
-            return CommandResult.Failure("Command validation failed.");
+            return CommandResult.Failure("Workshop registration validation failed.");
         }
 
         await _repository.AddAsync(registration, cancellationToken);
@@ -133,9 +133,13 @@ public sealed class CreateWorkshopRegistrationHandler
                 $"Workshop registration created: {registration.Id}",
                 cancellationToken);
         }
-        catch (Exception)
+        catch (IOException)
         {
-            return CommandResult.Failure("Audit logging failed.");
+            return CommandResult.Failure("Failed to write workshop registration audit log.");
+        }
+        catch (TimeoutException)
+        {
+            return CommandResult.Failure("Workshop registration audit logging timed out.");
         }
 
         return CommandResult.Success();
