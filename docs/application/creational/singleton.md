@@ -79,7 +79,7 @@ public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
             StringComparer.OrdinalIgnoreCase,
             new[]
             {
-                new KeyValuePair<string, string>("event-published", "Yeni etkinlik yayınlandı: {eventTitle}"),
+                new KeyValuePair<string, string>("event-published", "Yeni etkinlik duyuruldu: {eventTitle}"),
                 new KeyValuePair<string, string>("event-reminder", "Etkinlik başlamak üzere: {eventTitle}")
             });
 
