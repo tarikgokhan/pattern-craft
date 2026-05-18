@@ -95,12 +95,12 @@ public sealed class LiveExhibitCatalog : IExhibitCatalog
 
 /// <summary>
 /// Erişim kontrolü ve önbellekleme davranışını gerçek kataloğun önüne ekleyen proxy nesnesidir.
-/// Sergi kodlarını büyük-küçük harf farkını önemsemeden önbelleğe alır.
 /// </summary>
 public sealed class ExhibitCatalogProxy : IExhibitCatalog
 {
     private readonly IExhibitCatalog _innerCatalog;
     private readonly VisitorContext _visitorContext;
+    // Müze katalog kodları büyük-küçük harf farkı gözetmeden değerlendirilir.
     private readonly ConcurrentDictionary<string, ExhibitImage> _cache =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -112,7 +112,7 @@ public sealed class ExhibitCatalogProxy : IExhibitCatalog
     public ExhibitCatalogProxy(IExhibitCatalog innerCatalog, VisitorContext visitorContext)
     {
         _innerCatalog = innerCatalog ?? throw new ArgumentNullException(nameof(innerCatalog));
-        _visitorContext = visitorContext;
+        _visitorContext = visitorContext ?? throw new ArgumentNullException(nameof(visitorContext));
     }
 
     /// <inheritdoc />
