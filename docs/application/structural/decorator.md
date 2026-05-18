@@ -105,7 +105,7 @@ public sealed class TicketReservationService : ITicketReservationService
     /// <inheritdoc />
     public Task<ReservationResult> ReserveAsync(Guid eventId, int seatCount, CancellationToken cancellationToken)
     {
-        var reservationCode = $"RSV-{eventId:N}-{seatCount}";
+        var reservationCode = $"RSV-{Guid.NewGuid():N}";
         return Task.FromResult(new ReservationResult(true, reservationCode));
     }
 }
@@ -214,10 +214,16 @@ public sealed class NotificationDecorator : TicketReservationServiceDecorator
 
         if (result.Success)
         {
-            // Burada e-posta veya push bildirimi gönderimi tetiklenebilir.
+            await SendReservationNotificationAsync(result.ReservationCode, cancellationToken);
         }
 
         return result;
+    }
+
+    private static Task SendReservationNotificationAsync(string reservationCode, CancellationToken cancellationToken)
+    {
+        // Örnek amaçlıdır: gerçek projede e-posta, push veya mesaj kuyruğu entegrasyonu çağrılır.
+        return Task.CompletedTask;
     }
 }
 
