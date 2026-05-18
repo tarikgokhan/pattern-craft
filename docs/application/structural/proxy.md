@@ -83,7 +83,7 @@ public sealed record VisitorContext(Guid VisitorId, bool CanAccessHighResolution
 /// </summary>
 public sealed class LiveExhibitCatalog : IExhibitCatalog
 {
-    private const int SimulatedArchiveLatencyMs = 50;
+    private const int SimulatedArchiveLatencyMilliseconds = 50;
 
     /// <summary>
     /// Görsel bilgisini uzak arşivden simüle edilmiş ağ gecikmesiyle yükler.
@@ -93,7 +93,7 @@ public sealed class LiveExhibitCatalog : IExhibitCatalog
     /// <returns>Uzak arşivden alınan yüksek çözünürlüklü görsel bilgisi.</returns>
     public async Task<ExhibitImage> GetImageAsync(string exhibitCode, CancellationToken cancellationToken)
     {
-        await Task.Delay(TimeSpan.FromMilliseconds(SimulatedArchiveLatencyMs), cancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(SimulatedArchiveLatencyMilliseconds), cancellationToken);
         return new ExhibitImage(exhibitCode, "4K", "RemoteArchive");
     }
 }
@@ -103,6 +103,7 @@ public sealed class LiveExhibitCatalog : IExhibitCatalog
 /// </summary>
 public sealed class ExhibitCatalogProxy : IExhibitCatalog
 {
+    // Örnek kodda önbellek boyutu sade tutulur; gerçek sistemlerde trafik ve bellek profiline göre ayarlanmalıdır.
     private const int MaxCacheEntries = 256;
     private readonly object _syncRoot = new();
     private readonly IExhibitCatalog _innerCatalog;
