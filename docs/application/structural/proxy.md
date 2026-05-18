@@ -35,7 +35,7 @@ classDiagram
 
 ## Gerçek Hayattan Bir Senaryo
 
-Bir dijital müze uygulaması düşünün. Ziyaretçiler sergideki eserlerin küçük önizlemelerini herkes gibi görebilir; ancak yüksek çözünürlüklü görseller yalnızca kayıtlı araştırmacılara açılır. Üstelik bu görseller uzak bir arşiv servisinden geldiği için her çağrı maliyetlidir.
+Bir dijital müze uygulaması düşünün. Ziyaretçiler sergideki eserlerin küçük önizlemelerini görebilir; ancak yüksek çözünürlüklü görseller yalnızca kayıtlı araştırmacılara açılır. Üstelik bu görseller uzak bir arşiv servisinden geldiği için her çağrı maliyetlidir.
 
 Bu noktada `ExhibitCatalogProxy`, iki işi aynı anda yapar: önce ziyaretçinin yüksek çözünürlüklü içeriğe erişim hakkını kontrol eder, sonra da daha önce alınmış sonucu önbellekten döndürerek uzak servise gereksiz çağrıları engeller. İstemci kodu için ise sahnede tek bir oyuncu vardır: `IExhibitCatalog`.
 
@@ -83,16 +83,19 @@ public sealed record VisitorContext(Guid VisitorId, bool CanAccessHighResolution
 /// </summary>
 public sealed class LiveExhibitCatalog : IExhibitCatalog
 {
+    private const int SimulatedArchiveLatencyMs = 50;
+
     /// <inheritdoc />
     public async Task<ExhibitImage> GetImageAsync(string exhibitCode, CancellationToken cancellationToken)
     {
-        await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(SimulatedArchiveLatencyMs), cancellationToken);
         return new ExhibitImage(exhibitCode, "4K", "RemoteArchive");
     }
 }
 
 /// <summary>
 /// Erişim kontrolü ve önbellekleme davranışını gerçek kataloğun önüne ekleyen proxy nesnesidir.
+/// Sergi kodlarını büyük-küçük harf farkını önemsemeden önbelleğe alır.
 /// </summary>
 public sealed class ExhibitCatalogProxy : IExhibitCatalog
 {
