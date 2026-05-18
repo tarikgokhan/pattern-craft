@@ -7,7 +7,7 @@ Bridge deseni, “ne yapıyorum?” sorusuyla “bunu nasıl yapıyorum?” soru
 Bazı sistemlerde iki ayrı eksen aynı anda değişir:
 
 - İş akışı (örn. rapor dışa aktarma, bildirim gönderme, içerik yayınlama)
-- Teknik uygulama detayı (örn. PDF/HTML, e-mail/webhook, dosya/s3)
+- Teknik uygulama detayı (örn. PDF/HTML, email/webhook, dosya/s3)
 
 Bu iki eksen tek sınıf hiyerarşisinde birleşince sınıf sayısı patlar, değişiklik etkisi büyür ve test yazmak zorlaşır. Bridge, tam bu noktada devreye girer: akışı bir soyutlama altında toplar, teknik kısmı ayrı implementasyon olarak bağlar.
 
@@ -20,7 +20,7 @@ Bu iki eksen tek sınıf hiyerarşisinde birleşince sınıf sayısı patlar, de
 
 ## 3. Gerçek Hayat Senaryosu
 
-Bir **akıllı şehir etkinlik platformu** düşün: konser, atölye ve sergi duyuruları farklı formatlarda (kısa özet, detaylı bülten) hazırlanıyor; farklı kanallardan (mobil push, e-mail) gönderiliyor.
+Bir **akıllı şehir etkinlik platformu** düşün: konser, atölye ve sergi duyuruları farklı formatlarda (kısa özet, detaylı bülten) hazırlanıyor; farklı kanallardan (mobil push, email) gönderiliyor.
 
 - İçerik formatı ayrı bir eksen
 - Gönderim kanalı ayrı bir eksen
@@ -164,7 +164,7 @@ public sealed class DetailedAnnouncement : Announcement
 }
 
 /// <summary>
-/// İçeriği e-mail ile ileten kanal.
+/// İçeriği email ile ileten kanal.
 /// </summary>
 public sealed class EmailChannel : IMessageChannel
 {
