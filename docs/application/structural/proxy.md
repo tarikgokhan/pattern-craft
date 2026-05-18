@@ -85,7 +85,12 @@ public sealed class LiveExhibitCatalog : IExhibitCatalog
 {
     private const int SimulatedArchiveLatencyMs = 50;
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Görsel bilgisini uzak arşivden simüle edilmiş ağ gecikmesiyle yükler.
+    /// </summary>
+    /// <param name="exhibitCode">Eseri tanımlayan benzersiz kod.</param>
+    /// <param name="cancellationToken">Asenkron işlemi iptal etmek için kullanılan belirteç.</param>
+    /// <returns>Uzak arşivden alınan yüksek çözünürlüklü görsel bilgisi.</returns>
     public async Task<ExhibitImage> GetImageAsync(string exhibitCode, CancellationToken cancellationToken)
     {
         await Task.Delay(TimeSpan.FromMilliseconds(SimulatedArchiveLatencyMs), cancellationToken);
@@ -98,6 +103,7 @@ public sealed class LiveExhibitCatalog : IExhibitCatalog
 /// </summary>
 public sealed class ExhibitCatalogProxy : IExhibitCatalog
 {
+    private const int MaxCacheEntries = 256;
     private readonly IExhibitCatalog _innerCatalog;
     private readonly VisitorContext _visitorContext;
     // Müze katalog kodları büyük-küçük harf farkı gözetmeden değerlendirilir.
@@ -115,7 +121,13 @@ public sealed class ExhibitCatalogProxy : IExhibitCatalog
         _visitorContext = visitorContext ?? throw new ArgumentNullException(nameof(visitorContext));
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Görsel bilgisini erişim kontrolü ve önbellekleme kurallarıyla birlikte döndürür.
+    /// Yetkisiz ziyaretçiler için önizleme sonucu üretir.
+    /// </summary>
+    /// <param name="exhibitCode">Eseri tanımlayan benzersiz kod.</param>
+    /// <param name="cancellationToken">Asenkron işlemi iptal etmek için kullanılan belirteç.</param>
+    /// <returns>Ziyaretçi yetkisine uygun çözünürlükte görsel bilgisi.</returns>
     public async Task<ExhibitImage> GetImageAsync(string exhibitCode, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(exhibitCode))
@@ -134,6 +146,12 @@ public sealed class ExhibitCatalogProxy : IExhibitCatalog
         }
 
         var image = await _innerCatalog.GetImageAsync(exhibitCode, cancellationToken);
+
+        if (_cache.Count >= MaxCacheEntries)
+        {
+            _cache.Clear();
+        }
+
         _cache[exhibitCode] = image;
         return image;
     }
