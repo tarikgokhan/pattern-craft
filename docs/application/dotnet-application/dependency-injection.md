@@ -153,6 +153,9 @@ public sealed class CreateWorkshopReservationUseCase
         IWorkshopReservationRepository repository,
         IConfirmationChannel confirmationChannel)
     {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(confirmationChannel);
+
         _repository = repository;
         _confirmationChannel = confirmationChannel;
     }
@@ -167,6 +170,8 @@ public sealed class CreateWorkshopReservationUseCase
         WorkshopReservationRequest request,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         await _repository.SaveAsync(request, cancellationToken);
         await _confirmationChannel.SendReservationConfirmedAsync(
             request.ParticipantEmail,
