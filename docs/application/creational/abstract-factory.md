@@ -1,9 +1,6 @@
 # Abstract Factory Tasarım Deseni
-![Pattern Craft - Design Patterns Overview](/assets/images/abstract-factory.png)
-> **Kategori:** Application Design Patterns / Creational Patterns  
-> **Platform:** .NET / C#  
-> **Seviye:** Orta  
-> **Amaç:** Birbiriyle ilişkili nesne ailelerini, somut sınıflara doğrudan bağımlı olmadan üretmek.
+
+**Kategori:** Application Design Patterns / Creational Patterns | **Platform:** .NET / C# | **Seviye:** Orta
 
 ---
 
@@ -39,70 +36,57 @@ Abstract Factory aşağıdaki durumlarda tercih edilir:
 
 ## 3. Temel Problem
 
-Bir uygulamada farklı çıktı türleri için uyumlu bileşenler üretmek istediğimizi düşünelim.
+Hayal edin ki e-ticaret platformunuz hem mobil hem de web kanallarını destekliyor. Her kanal için benzersiz bir ürün sunumu, ödeme kartı gösterimi ve bildirim bileşeni gerekiyor. 
 
-Örneğin bir raporlama altyapısında iki farklı çıktı ailesi olsun:
+Mobil için:
+- Compact UIButton, Swipeable Payment Card, Push Notification
+  
+Web için:
+- Full-width UIButton, Interactive Payment Card, Email Notification
 
-```text
-PDF Output Family
-   ├── PdfHeaderRenderer
-   ├── PdfBodyRenderer
-   └── PdfFooterRenderer
-
-HTML Output Family
-   ├── HtmlHeaderRenderer
-   ├── HtmlBodyRenderer
-   └── HtmlFooterRenderer
-```
-
-Client kodun şunu bilmesini istemeyiz:
+Naif bir yaklaşım, her bileşeni doğrudan örneğini oluşturmak olabilir:
 
 ```csharp
-var header = new PdfHeaderRenderer();
-var body = new PdfBodyRenderer();
-var footer = new PdfFooterRenderer();
+// ❌ Kötü: Kanal bağımlılığı client kodunda
+var button = new MobileUIButton();
+var card = new MobilePaymentCard();
+var notification = new MobilePushNotification();
 ```
 
-Çünkü bu durumda client kod doğrudan somut sınıflara bağımlı olur.
+Bu şekilde client kod, tüm somut sınıfları bilmek zorunda kalır. Yeni bir kanal eklenmek istenirse hangi bileşenlerin gerektiği, bunların nasıl birleştirileceği belirsiz hale gelir.
 
-Daha doğru yaklaşım:
+✅ Daha iyi bir yaklaşım:
 
 ```csharp
-var header = factory.CreateHeaderRenderer();
-var body = factory.CreateBodyRenderer();
-var footer = factory.CreateFooterRenderer();
+IComponentFactory factory = new MobileComponentFactory();
+var button = factory.CreateButton();
+var card = factory.CreatePaymentCard();
+var notification = factory.CreateNotification();
 ```
 
-Bu sayede client kod sadece soyut fabrika ile çalışır.
+Artık client kod hiçbir somut sınıf bilmez, sadece soyut factory ile çalışır. Kanal değişikliği yapılmak istenirse, factory değiştirilir — uygulamanın geri kalanı dokunulmaz.
 
 ---
 
 ## 4. Yapısal Görünüm
 
-```text
-IReportRendererFactory
-   ├── CreateHeaderRenderer()
-   ├── CreateBodyRenderer()
-   └── CreateFooterRenderer()
+```
+IComponentFactory (Abstract Factory)
+   ├── CreateButton(): IButton
+   ├── CreatePaymentCard(): IPaymentCard
+   └── CreateNotification(): INotification
 
-PdfReportRendererFactory
-   ├── PdfHeaderRenderer
-   ├── PdfBodyRenderer
-   └── PdfFooterRenderer
-
-HtmlReportRendererFactory
-   ├── HtmlHeaderRenderer
-   ├── HtmlBodyRenderer
-   └── HtmlFooterRenderer
+MobileComponentFactory         WebComponentFactory
+   ├── MobileButton              ├── WebButton
+   ├── MobilePaymentCard         ├── WebPaymentCard
+   └── MobilePushNotification    └── WebEmailNotification
 ```
 
 ---
 
 ## 5. .NET Örneği
 
-Bu örnekte amaç, farklı rapor çıktı formatları için uyumlu renderer nesneleri üretmektir.
-
-Kullanılan senaryo tamamen teknik ve domain bağımsızdır.
+Bu örnekte amaç, farklı kanallar (mobile, web) için uyumlu UI bileşenleri üretmektir. Her kanal kendi tasarım prensipleri, animasyon stili ve kullanıcı etkileşim modeline sahiptir. Ama tüm kanallar aynı özellikleri karşılamak zorundadır.
 
 ---
 
@@ -112,42 +96,42 @@ Kullanılan senaryo tamamen teknik ve domain bağımsızdır.
 namespace PatternCraft.ApplicationPatterns.AbstractFactory;
 
 /// <summary>
-/// Rapor başlık bölümünü oluşturan renderer sözleşmesini temsil eder.
+/// Uygulama arayüzünde kullanılan buton bileşeninin sözleşmesini tanımlar.
 /// </summary>
-public interface IHeaderRenderer
+public interface IButton
 {
     /// <summary>
-    /// Başlık içeriğini üretir.
+    /// Butonu ekranda görüntülemek için gereken HTML veya render kodunu üretir.
     /// </summary>
-    /// <param name="title">Rapor başlığı.</param>
-    /// <returns>Üretilen başlık içeriği.</returns>
-    string Render(string title);
+    /// <param name="label">Butonun üzerinde gösterilecek metin.</param>
+    /// <returns>Render edilmiş buton çıktısı.</returns>
+    string Render(string label);
 }
 
 /// <summary>
-/// Rapor gövde bölümünü oluşturan renderer sözleşmesini temsil eder.
+/// Ödeme kartı göstergesi bileşeninin sözleşmesini tanımlar.
 /// </summary>
-public interface IBodyRenderer
+public interface IPaymentCard
 {
     /// <summary>
-    /// Gövde içeriğini üretir.
+    /// Ödeme kartını güvenli bir şekilde göstermek için gereken formatı üretir.
     /// </summary>
-    /// <param name="content">Rapor ana içeriği.</param>
-    /// <returns>Üretilen gövde içeriği.</returns>
-    string Render(string content);
+    /// <param name="cardNumber">Gizli kart numarası (son 4 hanesi gösterilir).</param>
+    /// <returns>Gösterim formatı.</returns>
+    string Display(string cardNumber);
 }
 
 /// <summary>
-/// Rapor alt bilgi bölümünü oluşturan renderer sözleşmesini temsil eder.
+/// Bildirim bileşeninin sözleşmesini tanımlar.
 /// </summary>
-public interface IFooterRenderer
+public interface INotification
 {
     /// <summary>
-    /// Alt bilgi içeriğini üretir.
+    /// Kullanıcıya bildirim göndermek için uygun kanalı ve formatı hazırlar.
     /// </summary>
-    /// <param name="text">Alt bilgi metni.</param>
-    /// <returns>Üretilen alt bilgi içeriği.</returns>
-    string Render(string text);
+    /// <param name="message">Bildirim mesajı.</param>
+    /// <returns>Gönderim komutu veya gösterim formatı.</returns>
+    string Send(string message);
 }
 ```
 
@@ -159,114 +143,118 @@ public interface IFooterRenderer
 namespace PatternCraft.ApplicationPatterns.AbstractFactory;
 
 /// <summary>
-/// Bir rapor formatına ait uyumlu renderer nesnelerini üreten abstract factory sözleşmesini temsil eder.
+/// Belirtilen kanal için uyumlu UI bileşeni ailesini üreten fabrika sözleşmesini tanımlar.
 /// </summary>
-public interface IReportRendererFactory
+public interface IComponentFactory
 {
     /// <summary>
-    /// Rapor başlık renderer nesnesini oluşturur.
+    /// Kanal uyumlu buton bileşenini oluşturur.
     /// </summary>
-    /// <returns>Başlık renderer nesnesi.</returns>
-    IHeaderRenderer CreateHeaderRenderer();
+    /// <returns>Kanal özel buton implementasyonu.</returns>
+    IButton CreateButton();
 
     /// <summary>
-    /// Rapor gövde renderer nesnesini oluşturur.
+    /// Kanal uyumlu ödeme kartı göstergesi oluşturur.
     /// </summary>
-    /// <returns>Gövde renderer nesnesi.</returns>
-    IBodyRenderer CreateBodyRenderer();
+    /// <returns>Kanal özel ödeme kartı implementasyonu.</returns>
+    IPaymentCard CreatePaymentCard();
 
     /// <summary>
-    /// Rapor alt bilgi renderer nesnesini oluşturur.
+    /// Kanal uyumlu bildirim sistemi oluşturur.
     /// </summary>
-    /// <returns>Alt bilgi renderer nesnesi.</returns>
-    IFooterRenderer CreateFooterRenderer();
+    /// <returns>Kanal özel bildirim implementasyonu.</returns>
+    INotification CreateNotification();
 }
 ```
 
 ---
 
-## 8. PDF Ürün Ailesi
+## 8. Mobil Platform Ürün Ailesi
 
 ```csharp
 namespace PatternCraft.ApplicationPatterns.AbstractFactory;
 
 /// <summary>
-/// PDF formatı için başlık renderer implementasyonudur.
+/// Mobil platform için optimize edilmiş buton bileşenidir.
+/// Compact tasarım, dokunsal geri bildirim uyumlu.
 /// </summary>
-public sealed class PdfHeaderRenderer : IHeaderRenderer
+public sealed class MobileButton : IButton
 {
     /// <inheritdoc />
-    public string Render(string title)
+    public string Render(string label)
     {
-        return $"[PDF HEADER] {title}";
+        return $"<button class=\"mobile-btn compact\" style=\"padding: 8px 16px; font-size: 12px;\">{label}</button>";
     }
 }
 
 /// <summary>
-/// PDF formatı için gövde renderer implementasyonudur.
+/// Mobil platformda güvenli ödeme kartı görüntüleme (push notification tabanlı).
 /// </summary>
-public sealed class PdfBodyRenderer : IBodyRenderer
+public sealed class MobilePaymentCard : IPaymentCard
 {
     /// <inheritdoc />
-    public string Render(string content)
+    public string Display(string cardNumber)
     {
-        return $"[PDF BODY] {content}";
+        var masked = cardNumber.Length > 4 ? "•••• •••• •••• " + cardNumber.Substring(cardNumber.Length - 4) : cardNumber;
+        return $"<div class=\"mobile-card-display\">Kart: {masked}</div>";
     }
 }
 
 /// <summary>
-/// PDF formatı için alt bilgi renderer implementasyonudur.
+/// Mobil platform için push notification tabanlı bildirim sistemi.
 /// </summary>
-public sealed class PdfFooterRenderer : IFooterRenderer
+public sealed class MobilePushNotification : INotification
 {
     /// <inheritdoc />
-    public string Render(string text)
+    public string Send(string message)
     {
-        return $"[PDF FOOTER] {text}";
+        return $"push_notification: title=Bildirim, body={message}, vibrate=true";
     }
 }
 ```
 
 ---
 
-## 9. HTML Ürün Ailesi
+## 9. Web Platform Ürün Ailesi
 
 ```csharp
 namespace PatternCraft.ApplicationPatterns.AbstractFactory;
 
 /// <summary>
-/// HTML formatı için başlık renderer implementasyonudur.
+/// Web platformu için tam genişlik buton bileşenidir.
+/// Sürükleme, açılır menü özellikleri destekler.
 /// </summary>
-public sealed class HtmlHeaderRenderer : IHeaderRenderer
+public sealed class WebButton : IButton
 {
     /// <inheritdoc />
-    public string Render(string title)
+    public string Render(string label)
     {
-        return $"<header><h1>{title}</h1></header>";
+        return $"<button class=\"web-btn primary\" style=\"width: 100%; padding: 12px 24px; font-size: 14px;\">{label}</button>";
     }
 }
 
 /// <summary>
-/// HTML formatı için gövde renderer implementasyonudur.
+/// Web platformunda etkileşimli ödeme kartı görüntüleme (hover efektleri, tooltip).
 /// </summary>
-public sealed class HtmlBodyRenderer : IBodyRenderer
+public sealed class WebPaymentCard : IPaymentCard
 {
     /// <inheritdoc />
-    public string Render(string content)
+    public string Display(string cardNumber)
     {
-        return $"<main><p>{content}</p></main>";
+        var masked = cardNumber.Length > 4 ? "•••• •••• •••• " + cardNumber.Substring(cardNumber.Length - 4) : cardNumber;
+        return $"<div class=\"web-card-display\" onmouseover=\"this.style.transform='scale(1.05)'\" title=\"Ödeme kartınız\">{masked}</div>";
     }
 }
 
 /// <summary>
-/// HTML formatı için alt bilgi renderer implementasyonudur.
+/// Web platformu için e-posta ve toast bildirim sistemi.
 /// </summary>
-public sealed class HtmlFooterRenderer : IFooterRenderer
+public sealed class WebEmailNotification : INotification
 {
     /// <inheritdoc />
-    public string Render(string text)
+    public string Send(string message)
     {
-        return $"<footer>{text}</footer>";
+        return $"email: subject=Haber, body={message}; toast: position=bottom-right, duration=5000";
     }
 }
 ```
@@ -279,50 +267,52 @@ public sealed class HtmlFooterRenderer : IFooterRenderer
 namespace PatternCraft.ApplicationPatterns.AbstractFactory;
 
 /// <summary>
-/// PDF formatı için uyumlu renderer ailesini oluşturan factory implementasyonudur.
+/// Mobil platform için uyumlu UI bileşen ailesini üreten fabrikadır.
+/// Mobile-first tasarımı destekler.
 /// </summary>
-public sealed class PdfReportRendererFactory : IReportRendererFactory
+public sealed class MobileComponentFactory : IComponentFactory
 {
     /// <inheritdoc />
-    public IHeaderRenderer CreateHeaderRenderer()
+    public IButton CreateButton()
     {
-        return new PdfHeaderRenderer();
+        return new MobileButton();
     }
 
     /// <inheritdoc />
-    public IBodyRenderer CreateBodyRenderer()
+    public IPaymentCard CreatePaymentCard()
     {
-        return new PdfBodyRenderer();
+        return new MobilePaymentCard();
     }
 
     /// <inheritdoc />
-    public IFooterRenderer CreateFooterRenderer()
+    public INotification CreateNotification()
     {
-        return new PdfFooterRenderer();
+        return new MobilePushNotification();
     }
 }
 
 /// <summary>
-/// HTML formatı için uyumlu renderer ailesini oluşturan factory implementasyonudur.
+/// Web platformu için uyumlu UI bileşen ailesini üreten fabrikadır.
+/// Desktop-first tasarımı destekler.
 /// </summary>
-public sealed class HtmlReportRendererFactory : IReportRendererFactory
+public sealed class WebComponentFactory : IComponentFactory
 {
     /// <inheritdoc />
-    public IHeaderRenderer CreateHeaderRenderer()
+    public IButton CreateButton()
     {
-        return new HtmlHeaderRenderer();
+        return new WebButton();
     }
 
     /// <inheritdoc />
-    public IBodyRenderer CreateBodyRenderer()
+    public IPaymentCard CreatePaymentCard()
     {
-        return new HtmlBodyRenderer();
+        return new WebPaymentCard();
     }
 
     /// <inheritdoc />
-    public IFooterRenderer CreateFooterRenderer()
+    public INotification CreateNotification()
     {
-        return new HtmlFooterRenderer();
+        return new WebEmailNotification();
     }
 }
 ```
@@ -335,39 +325,43 @@ public sealed class HtmlReportRendererFactory : IReportRendererFactory
 namespace PatternCraft.ApplicationPatterns.AbstractFactory;
 
 /// <summary>
-/// Rapor oluşturma akışını yöneten uygulama servisidir.
+/// Kullanıcı arayüzü bileşenlerini yönetir ve çoklu kanal desteği sağlar.
+/// Factory pattern sayesinde kanal detaylarından izole edilmiştir.
 /// </summary>
-public sealed class ReportComposer
+public sealed class UserInterfaceManager
 {
-    private readonly IReportRendererFactory _rendererFactory;
+    private readonly IComponentFactory _componentFactory;
 
     /// <summary>
-    /// ReportComposer sınıfının yeni bir örneğini oluşturur.
+    /// UserInterfaceManager sınıfının yeni bir örneğini oluşturur.
     /// </summary>
-    /// <param name="rendererFactory">Rapor renderer nesnelerini üreten factory.</param>
-    public ReportComposer(IReportRendererFactory rendererFactory)
+    /// <param name="componentFactory">Kanal uyumlu bileşenleri üreten fabrika.</param>
+    public UserInterfaceManager(IComponentFactory componentFactory)
     {
-        _rendererFactory = rendererFactory;
+        _componentFactory = componentFactory;
     }
 
     /// <summary>
-    /// Başlık, gövde ve alt bilgi bölümlerinden oluşan rapor çıktısını üretir.
+    /// Satın alma işlemi için gerekli tüm UI bileşenlerini render eder.
     /// </summary>
-    /// <param name="title">Rapor başlığı.</param>
-    /// <param name="content">Rapor içeriği.</param>
-    /// <param name="footer">Rapor alt bilgisi.</param>
-    /// <returns>Üretilen rapor çıktısı.</returns>
-    public string Compose(string title, string content, string footer)
+    /// <param name="buttonText">Butonun üzerindeki metin.</param>
+    /// <param name="cardNumber">Ödeme kartı numarası.</param>
+    /// <param name="feedbackMessage">Kullanıcı geri bildirimi.</param>
+    /// <returns>Tam render edilmiş checkout ekranı.</returns>
+    public string RenderCheckout(string buttonText, string cardNumber, string feedbackMessage)
     {
-        var headerRenderer = _rendererFactory.CreateHeaderRenderer();
-        var bodyRenderer = _rendererFactory.CreateBodyRenderer();
-        var footerRenderer = _rendererFactory.CreateFooterRenderer();
+        var button = _componentFactory.CreateButton();
+        var paymentCard = _componentFactory.CreatePaymentCard();
+        var notification = _componentFactory.CreateNotification();
 
         return string.Join(
             Environment.NewLine,
-            headerRenderer.Render(title),
-            bodyRenderer.Render(content),
-            footerRenderer.Render(footer));
+            "<div class=\"checkout-container\">",
+            paymentCard.Display(cardNumber),
+            button.Render(buttonText),
+            $"<p class=\"feedback\">{feedbackMessage}</p>",
+            $"<!-- Notification: {notification.Send(feedbackMessage)} -->",
+            "</div>");
     }
 }
 ```
@@ -379,68 +373,76 @@ public sealed class ReportComposer
 ```csharp
 using PatternCraft.ApplicationPatterns.AbstractFactory;
 
-IReportRendererFactory factory = new HtmlReportRendererFactory();
+// Kullanıcı aracı mobil cihazdan giriş yapıyor
+IComponentFactory mobileFactory = new MobileComponentFactory();
+var mobileUI = new UserInterfaceManager(mobileFactory);
 
-var composer = new ReportComposer(factory);
+var mobileCheckout = mobileUI.RenderCheckout(
+    buttonText: "Öde",
+    cardNumber: "4532123456789012",
+    feedbackMessage: "Ödeme işlemi başlamış.");
 
-var output = composer.Compose(
-    title: "System Health Report",
-    content: "All services are running within expected thresholds.",
-    footer: "Generated by PatternCraft sample.");
+Console.WriteLine("=== MOBILE CHECKOUT ===");
+Console.WriteLine(mobileCheckout);
 
-Console.WriteLine(output);
+// Aynı işlemi web tarayıcıdan yapan kullanıcı
+IComponentFactory webFactory = new WebComponentFactory();
+var webUI = new UserInterfaceManager(webFactory);
+
+var webCheckout = webUI.RenderCheckout(
+    buttonText: "Satın Almayı Onayla",
+    cardNumber: "4532123456789012",
+    feedbackMessage: "Lütfen ödeme detaylarınızı onaylayın.");
+
+Console.WriteLine("\n=== WEB CHECKOUT ===");
+Console.WriteLine(webCheckout);
 ```
 
-Örnek çıktı:
-
-```html
-<header><h1>System Health Report</h1></header>
-<main><p>All services are running within expected thresholds.</p></main>
-<footer>Generated by PatternCraft sample.</footer>
-```
-
-PDF ailesi kullanılmak istenirse sadece factory değiştirilir:
-
-```csharp
-IReportRendererFactory factory = new PdfReportRendererFactory();
-```
-
-Client kodun geri kalanı değişmez.
+Çalıştırıldığında farklı formatlar görülür — ama client kod (UserInterfaceManager) aynıdır!
 
 ---
 
 ## 13. Dependency Injection ile Kullanım
 
-Gerçek .NET uygulamalarında factory seçimi configuration üzerinden yapılabilir.
+Gerçek ASP.NET uygulamalarında kanal seçimi HTTP istek başlığından ve kullanıcı aracısından otomatik yapılır:
 
 ```csharp
-builder.Services.AddScoped<IReportRendererFactory, HtmlReportRendererFactory>();
-builder.Services.AddScoped<ReportComposer>();
+builder.Services.AddScoped<UserInterfaceManager>();
+builder.Services.AddScoped<IComponentFactory>(provider => 
+{
+    var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
+    
+    var userAgent = httpContext?.Request.Headers["User-Agent"].ToString() ?? "";
+    
+    return userAgent.Contains("Mobile") || userAgent.Contains("Android") || userAgent.Contains("iPhone")
+        ? new MobileComponentFactory()
+        : new WebComponentFactory();
+});
 ```
 
-Daha dinamik seçim gerekiyorsa aşağıdaki gibi bir provider kullanılabilir:
+Daha yapılandırılabilir bir yaklaşım:
 
 ```csharp
 namespace PatternCraft.ApplicationPatterns.AbstractFactory;
 
 /// <summary>
-/// Rapor formatına göre uygun renderer factory nesnesini seçer.
+/// Platform adına göre uygun factory seçerek bileşen üretimini sağlar.
 /// </summary>
-public sealed class ReportRendererFactoryProvider
+public sealed class ComponentFactoryProvider
 {
     /// <summary>
-    /// Belirtilen formata göre uygun factory örneğini döndürür.
+    /// Belirtilen platform adına göre uygun factory örneğini döndürür.
     /// </summary>
-    /// <param name="format">Rapor çıktı formatı.</param>
-    /// <returns>Seçilen renderer factory nesnesi.</returns>
-    /// <exception cref="NotSupportedException">Desteklenmeyen formatlar için fırlatılır.</exception>
-    public IReportRendererFactory GetFactory(string format)
+    /// <param name="platform">Platform adı (mobile, web, tablet, vb.).</param>
+    /// <returns>Seçilen component factory nesnesi.</returns>
+    /// <exception cref="NotSupportedException">Desteklenmeyen platform için fırlatılır.</exception>
+    public IComponentFactory GetFactory(string platform)
     {
-        return format.ToLowerInvariant() switch
+        return platform.ToLowerInvariant() switch
         {
-            "pdf" => new PdfReportRendererFactory(),
-            "html" => new HtmlReportRendererFactory(),
-            _ => throw new NotSupportedException($"The report format '{format}' is not supported.")
+            "mobile" => new MobileComponentFactory(),
+            "web" => new WebComponentFactory(),
+            _ => throw new NotSupportedException($"Platform '{platform}' desteklenmiyor.")
         };
     }
 }
@@ -448,52 +450,47 @@ public sealed class ReportRendererFactoryProvider
 
 ---
 
-## 14. Abstract Factory ile Factory Method Arasındaki Fark
+## 14. Avantajlar ve Riskler
+
+### Avantajlar
+- **Somut Sınıf Bağımlılığı Azalır:** Client kod hiçbir concrete sınıfı bilmez, sadece arayüzlerle çalışır.
+- **Uyumlu Ürün Aileleri:** Birbiriyle tutarlı olan nesneler birlikte üretilir, çatışma riski azalır.
+- **Kolay Genişletme:** Yeni bir kanal/format eklemek için sadece yeni factory ve product sınıfları eklenir; mevcut kod değişmez.
+- **Test Kolaylığı:** Mock factory ve product'ları easily oluşturulabilir.
+- **Open/Closed Principle:** Kodu kapalı tutarak genişletebilirsiniz.
+
+### Riskler ve Dikkat Edilecek Noktalar
+- **Karmaşıklık:** Basit senaryo için gereksiz yere interface ve sınıf sayısı artar.
+- **Yeni Product Eklenmesi:** Tüm factory implementasyonları güncellenmek zorunda kalır.
+- **Over-Engineering:** Sadece abstract factory yapısı için sorunu zorlamak. Eğer gerçekten birden fazla ilişkili nesne yoksa, Factory Method bile yeterli olabilir.
+
+---
+
+## 15. Abstract Factory ile Factory Method Arasındaki Fark
 
 | Konu | Factory Method | Abstract Factory |
 |---|---|---|
 | Odak | Tek bir nesne üretimi | Birbiriyle ilişkili nesne ailesi üretimi |
 | Karmaşıklık | Daha basit | Daha kapsamlı |
 | Kullanım | Tek ürün değişiyorsa | Birden fazla uyumlu ürün birlikte değişiyorsa |
-| Örnek | `CreateRenderer()` | `CreateHeaderRenderer()`, `CreateBodyRenderer()`, `CreateFooterRenderer()` |
+| Örnek | `CreateButton()` | `CreateButton()`, `CreatePaymentCard()`, `CreateNotification()` |
 
 ---
 
-## 15. Avantajlar
-
-- Client kod somut sınıflara bağımlı olmaz.
-- Birbiriyle uyumlu nesne aileleri birlikte üretilir.
-- Yeni ürün ailesi eklemek kolaylaşır.
-- Test edilebilirlik artar.
-- Open/Closed Principle desteklenir.
-- Nesne oluşturma karmaşıklığı merkezi hale gelir.
-
----
-
-## 16. Dezavantajlar
-
-- Basit senaryolarda gereksiz soyutlama oluşturabilir.
-- Yeni bir product interface eklenirse tüm factory implementasyonlarının güncellenmesi gerekir.
-- Sınıf sayısı artar.
-- Yanlış kullanıldığında kodu gereğinden fazla karmaşık hale getirebilir.
-
----
-
-## 17. .NET Projelerinde Kullanım Alanları
+## 16. .NET Projelerinde Kullanım Alanları
 
 Abstract Factory aşağıdaki teknik alanlarda kullanılabilir:
 
-- Farklı çıktı formatları için renderer ailesi üretimi
-- Farklı UI tema bileşenleri üretimi
-- Farklı storage provider aileleri üretimi
-- Farklı notification channel aileleri üretimi
-- Farklı dosya işleme stratejilerine ait bileşen setleri üretimi
-- Farklı ortamlar için uyumlu servis aileleri üretimi
-- Test ve production ortamlarında farklı ama uyumlu nesne setleri kullanımı
+- **Multi-Channel UI Bileşenleri:** Mobil, web, tablet gibi farklı kanallar için uyumlu bileşen aileleri
+- **Tema Desteği:** Light/Dark tema, farklı UI tema aileleri
+- **Database Provider Aileleri:** SQL Server, PostgreSQL, SQLite için uyumlu query/command setleri
+- **Notification Kanalları:** Email, SMS, Push, In-App notification aileleri
+- **Dosya İşleme Stratejileri:** PDF, Excel, CSV export için uyumlu writer aileleri
+- **Ortam Spesifik Konfigürasyon:** Development, Staging, Production ortamları için farklı bileşen setleri
 
 ---
 
-## 18. Kullanım Kararı
+## 17. Test Edilebilirlik Notları
 
 Abstract Factory aşağıdaki soruya “evet” cevabı verildiğinde güçlü bir adaydır:
 
@@ -505,19 +502,7 @@ Eğer birlikte değişen ve uyumlu kalması gereken birden fazla nesne varsa **A
 
 ---
 
-## 19. Mini Kontrol Listesi
-
-| Soru | Cevap Evetse |
-|---|---|
-| Birden fazla ilişkili nesne birlikte mi üretiliyor? | Abstract Factory düşünülebilir. |
-| Client kod somut sınıfları bilmemeli mi? | Abstract Factory uygundur. |
-| Aynı iş akışı farklı nesne aileleriyle mi çalışıyor? | Abstract Factory uygundur. |
-| Yeni aileler eklenecek ama client kod değişmemeli mi? | Abstract Factory uygundur. |
-| Sadece tek bir nesne mi üretiliyor? | Factory Method daha sade olabilir. |
-
----
-
-## 20. Özet
+## 19. Özet
 
 Abstract Factory, birbiriyle ilişkili nesne ailelerinin üretimini soyutlayarak uygulamanın somut sınıflara bağımlılığını azaltır.
 
