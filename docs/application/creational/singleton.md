@@ -75,11 +75,13 @@ public interface INotificationTemplateRegistry
 public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
 {
     private readonly ImmutableDictionary<string, string> _templates =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["event-published"] = "Yeni etkinlik yayında: {title}",
-            ["event-reminder"] = "Etkinlik başlamak üzere: {title}"
-        }.ToImmutableDictionary();
+        ImmutableDictionary.CreateRange(
+            StringComparer.OrdinalIgnoreCase,
+            new[]
+            {
+                new KeyValuePair<string, string>("event-published", "Yeni etkinlik yayında: {title}"),
+                new KeyValuePair<string, string>("event-reminder", "Etkinlik başlamak üzere: {title}")
+            });
 
     /// <summary>
     /// İstenen anahtar için şablon metnini getirir.
@@ -88,7 +90,8 @@ public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
     {
         if (!_templates.TryGetValue(templateKey, out var template))
         {
-            throw new KeyNotFoundException($"Template not found: {templateKey}");
+            throw new KeyNotFoundException(
+                $"Template not found: {templateKey}. Available keys: {string.Join(", ", _templates.Keys)}");
         }
 
         return template;
