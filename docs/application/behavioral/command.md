@@ -2,7 +2,7 @@
 
 ## 1. Kısa Tanım
 
-Command, bir isteği nesneye dönüştürür. Böylece “hangi iş yapılacak?” sorusu, işi çağıran koddan ayrılır; kuyruklama, loglama, geri alma (undo) ve yeniden çalıştırma (redo) gibi yetenekler daha doğal hale gelir.
+Command, bir isteği nesneye dönüştürür. Böylece “hangi iş yapılacak?” sorusu, işi çağıran koddan ayrılır; kuyruklama, loglama, geri alma (undo) ve yeniden yürütme (redo) gibi yetenekler daha doğal hale gelir.
 
 ## 2. Çözdüğü Problem
 
@@ -128,13 +128,13 @@ public sealed class CreateWorkshopRegistrationHandler
 /// <summary>
 /// Komut işleme sonucunu temsil eder.
 /// </summary>
-public sealed record CommandResult(bool IsSuccess, string? Error)
+public sealed record CommandResult(bool IsSuccess)
 {
     /// <summary>
     /// Başarılı bir sonuç üretir.
     /// </summary>
     /// <returns>Başarılı command sonucu.</returns>
-    public static CommandResult Success() => new(true, null);
+    public static CommandResult Success() => new(true);
 }
 
 /// <summary>
