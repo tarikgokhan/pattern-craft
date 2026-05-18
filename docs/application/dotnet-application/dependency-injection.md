@@ -60,7 +60,7 @@ flowchart LR
 
 ## 7. C# Örneği
 
-Aşağıdaki örnek, atölye rezervasyon akışında constructor injection kullanımını gösterir. Public API yüzeyindeki tipler ve üyeler XML documentation comment içerir.
+Aşağıdaki örnek, atölye rezervasyon akışında constructor injection kullanımını gösterir. Onay mesajı tarafı gerçek bir entegrasyon yerine konsola yazan simüle bir kanal ile temsil edilir. Böylece örnek kısa kalırken bağımlılıkların nasıl enjekte edildiği net biçimde görülebilir.
 
 ```csharp
 using System;
@@ -167,6 +167,9 @@ public static class ApplicationComposition
     }
 }
 
+/// <summary>
+/// Stores reservations in memory for demonstration purposes.
+/// </summary>
 internal sealed class InMemoryWorkshopReservationRepository : IWorkshopReservationRepository
 {
     public Task SaveAsync(WorkshopReservationRequest request, CancellationToken cancellationToken)
@@ -175,6 +178,9 @@ internal sealed class InMemoryWorkshopReservationRepository : IWorkshopReservati
     }
 }
 
+/// <summary>
+/// Simulates a confirmation channel by writing the result to the console.
+/// </summary>
 internal sealed class ConsoleConfirmationChannel : IConfirmationChannel
 {
     public Task SendReservationConfirmedAsync(
