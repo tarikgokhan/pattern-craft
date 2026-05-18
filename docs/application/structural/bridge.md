@@ -7,7 +7,7 @@ Bridge deseni, “ne yapıyorum?” sorusuyla “bunu nasıl yapıyorum?” soru
 Bazı sistemlerde iki ayrı eksen aynı anda değişir:
 
 - İş akışı (örn. rapor dışa aktarma, bildirim gönderme, içerik yayınlama)
-- Teknik uygulama detayı (örn. PDF/HTML, e-posta/webhook, dosya/s3)
+- Teknik uygulama detayı (örn. PDF/HTML, e-mail/webhook, dosya/s3)
 
 Bu iki eksen tek sınıf hiyerarşisinde birleşince sınıf sayısı patlar, değişiklik etkisi büyür ve test yazmak zorlaşır. Bridge, tam bu noktada devreye girer: akışı bir soyutlama altında toplar, teknik kısmı ayrı implementasyon olarak bağlar.
 
@@ -20,7 +20,7 @@ Bu iki eksen tek sınıf hiyerarşisinde birleşince sınıf sayısı patlar, de
 
 ## 3. Gerçek Hayat Senaryosu
 
-Bir **akıllı şehir etkinlik platformu** düşün: konser, atölye ve sergi duyuruları farklı formatlarda (kısa özet, detaylı bülten) hazırlanıyor; farklı kanallardan (mobil push, e-posta) gönderiliyor.
+Bir **akıllı şehir etkinlik platformu** düşün: konser, atölye ve sergi duyuruları farklı formatlarda (kısa özet, detaylı bülten) hazırlanıyor; farklı kanallardan (mobil push, e-mail) gönderiliyor.
 
 - İçerik formatı ayrı bir eksen
 - Gönderim kanalı ayrı bir eksen
@@ -164,14 +164,14 @@ public sealed class DetailedAnnouncement : Announcement
 }
 
 /// <summary>
-/// İçeriği e-posta ile ileten kanal.
+/// İçeriği e-mail ile ileten kanal.
 /// </summary>
 public sealed class EmailChannel : IMessageChannel
 {
     /// <inheritdoc />
     public Task SendAsync(string content, CancellationToken cancellationToken)
     {
-        Console.WriteLine($"[E-POSTA] {content}");
+        Console.WriteLine($"[EMAIL] {content}");
         return Task.CompletedTask;
     }
 }
@@ -235,5 +235,29 @@ Bridge, testlerde özellikle güçlüdür çünkü soyutlama tarafını teknik d
 - `IMessageChannel` için test doubles (fake/mock) kullanılır.
 - `Announcement` türevlerinin doğru içerik ürettiği, kanal implementasyonundan bağımsız test edilir.
 - Kanal testleri ayrı yazılarak I/O bağımlılıkları izole edilir.
+
+```csharp
+public sealed class FakeChannel : IMessageChannel
+{
+    public string? LastMessage { get; private set; }
+
+    public Task SendAsync(string content, CancellationToken cancellationToken)
+    {
+        LastMessage = content;
+        return Task.CompletedTask;
+    }
+}
+
+[Fact]
+public async Task ShortAnnouncement_Should_Use_Channel_With_Formatted_Content()
+{
+    var fakeChannel = new FakeChannel();
+    var sut = new ShortAnnouncement(fakeChannel, "Park konseri başlıyor!");
+
+    await sut.PublishAsync(CancellationToken.None);
+
+    Assert.Equal("🎫 Park konseri başlıyor!", fakeChannel.LastMessage);
+}
+```
 
 Kısacası: davranış testleri ile entegrasyon testlerini temiz bir şekilde ayırmana yardımcı olur.
