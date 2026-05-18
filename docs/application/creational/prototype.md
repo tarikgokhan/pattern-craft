@@ -64,6 +64,7 @@ public sealed record WorkshopTemplate(
 {
     /// <summary>
     /// Atölye şablonunun güvenli bir kopyasını üretir.
+    /// String alanlar immutable olduğu için materyal listesi için dizi kopyası yeterlidir.
     /// </summary>
     public WorkshopTemplate Clone()
     {
@@ -79,8 +80,7 @@ public sealed record WorkshopTemplate(
     /// </summary>
     public WorkshopTemplate CloneWithTitle(string title)
     {
-        var copy = Clone();
-        return copy with { Title = title };
+        return this with { Title = title };
     }
 }
 ```
