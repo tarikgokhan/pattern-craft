@@ -155,7 +155,7 @@ public sealed class TreeStyle
     public string Render(TreePlacement placement)
     {
         return $"{Species} ağacı ({placement.X}, {placement.Y}) noktasında, {placement.HeightInMeters} metre yükseklikle çizildi. " +
-               $"Texture={TexturePath}, LeafColor={LeafColor}";
+               $"Doku={TexturePath}, YaprakRengi={LeafColor}";
     }
 }
 
@@ -251,7 +251,7 @@ public static class Demo
             new(factory.GetOrCreate("Çam", "/textures/pine.png", "KoyuYeşil"), new TreePlacement(40, 8, 9))
         };
 
-        Console.WriteLine(ReferenceEquals(oakStyle, anotherOakStyle));
+        Console.WriteLine($"Aynı stil paylaşılıyor mu? {ReferenceEquals(oakStyle, anotherOakStyle)}");
 
         foreach (var tree in trees)
         {
