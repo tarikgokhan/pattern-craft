@@ -162,7 +162,7 @@ public sealed class NotificationOrchestrator
 
 ## 5. Gerçek Hayat Senaryosu (Finans Dışı)
 
-Bir etkinlik yönetim platformu düşünelim: konser, atölye ve seminer duyuruları kullanıcıya farklı kanallardan iletiliyor. Pazarlama ekibi yeni bir kanal (“Push Notification”) istediğinde mevcut gönderim akışı bozulmadan sadece yeni bir sender implementasyonu ve factory eşlemesi ekleniyor. Uygulama tarafı aynı metodu çağırmaya devam ediyor; yani orkestrasyon sabit, üretim kararı esnek.
+Bir etkinlik yönetim platformu düşünelim: konser, atölye ve seminer duyuruları kullanıcıya farklı kanallardan iletiliyor. Pazarlama ekibi yeni bir kanal (“SMS”) istediğinde mevcut gönderim akışı bozulmadan sadece yeni bir sender implementasyonu ve factory eşlemesi ekleniyor. Uygulama tarafı aynı metodu çağırmaya devam ediyor; yani orkestrasyon sabit, üretim kararı esnek.
 
 ## 6. Avantajlar
 
