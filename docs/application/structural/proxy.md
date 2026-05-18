@@ -106,7 +106,7 @@ public sealed class ExhibitCatalogProxy : IExhibitCatalog
     private const int MaxCacheEntries = 256;
     private readonly IExhibitCatalog _innerCatalog;
     private readonly VisitorContext _visitorContext;
-    // Exhibit codes are matched without case sensitivity in the museum catalog.
+    // Eser kodları müze kataloğunda büyük/küçük harf duyarlılığı olmadan eşleştirilir.
     private readonly ConcurrentDictionary<string, ExhibitImage> _cache =
         new(StringComparer.OrdinalIgnoreCase);
 
