@@ -58,6 +58,7 @@ classDiagram
 ```csharp
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
@@ -76,23 +77,12 @@ public interface INotificationTemplateRegistry
 /// </summary>
 public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
 {
-    private static readonly Lazy<NotificationTemplateRegistry> _lazy =
-        new(() => new NotificationTemplateRegistry());
-
-    private readonly Dictionary<string, string> _templates = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["event-published"] = "Yeni etkinlik yayında: {title}",
-        ["event-reminder"] = "Etkinlik başlamak üzere: {title}"
-    };
-
-    /// <summary>
-    /// Singleton örneğini döndürür.
-    /// </summary>
-    public static NotificationTemplateRegistry Instance => _lazy.Value;
-
-    private NotificationTemplateRegistry()
-    {
-    }
+    private readonly ImmutableDictionary<string, string> _templates =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["event-published"] = "Yeni etkinlik yayında: {title}",
+            ["event-reminder"] = "Etkinlik başlamak üzere: {title}"
+        }.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// İstenen anahtar için şablon metnini getirir.
@@ -118,7 +108,7 @@ public static class ServiceCollectionRegistration
     /// </summary>
     public static void Register(IServiceCollection services)
     {
-        services.AddSingleton<INotificationTemplateRegistry>(_ => NotificationTemplateRegistry.Instance);
+        services.AddSingleton<INotificationTemplateRegistry, NotificationTemplateRegistry>();
     }
 }
 ```
