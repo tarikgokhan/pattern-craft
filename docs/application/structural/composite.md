@@ -137,7 +137,7 @@ public sealed class ArticlePage : IContentComponent
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.Append(' ', depth * 2);
-        builder.AppendLine($"- {Title} ({ReadingTimeInMinutes} dk)");
+        builder.AppendLine($"- {Title} ({ReadingTimeInMinutes} dakika)");
     }
 }
 
@@ -220,7 +220,7 @@ public static class Demo
 
         StringBuilder builder = new();
         root.Render(builder, depth: 0);
-        builder.AppendLine($"Toplam süre: {root.GetReadingTimeInMinutes()} dk");
+        builder.AppendLine($"Toplam süre: {root.GetReadingTimeInMinutes()} dakika");
 
         return builder.ToString();
     }
