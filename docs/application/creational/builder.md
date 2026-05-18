@@ -4,7 +4,7 @@
 
 Builder, çok parçalı ve kurallı bir nesneyi tek seferde karmaşık constructor çağrılarıyla kurmak yerine, adım adım ve okunabilir bir akışla üretmeyi sağlar.
 
-Kısacası: Nesneyi "bir kerede doldur" yerine "anlamlı adımlarla hazırla, en sonda doğrula ve üret" yaklaşımıdır.
+Kısaca: Nesneyi "bir kerede doldur" yerine "anlamlı adımlarla hazırla, en sonda doğrula ve üret" yaklaşımıdır.
 
 ## 2. Çözdüğü Problem
 
@@ -29,7 +29,7 @@ Bir etkinlik platformunda "program yayınlama" komutu oluşturduğunuzu düşün
 
 Bu verileri tek constructor çağrısına sıkıştırmak yerine Builder ile adım adım topladığınızda akış doğal hale gelir: önce temel bilgileri kurar, sonra opsiyonel parçaları eklersiniz. `Build()` aşamasında da "yayınlanabilir program" kuralları merkezi olarak doğrulanır.
 
-Bu senaryoda Builder sadece estetik bir tercih değildir; doğrudan doğruya geçersiz program üretimini azaltan ve kullanım akışını netleştiren bir yapı taşıdır.
+Bu senaryoda Builder sadece estetik bir tercih değildir; doğrudan geçersiz program üretimini azaltan ve kullanım akışını netleştiren bir yapı taşıdır.
 
 ## 4. .NET İçinde Kullanım Yaklaşımı
 
