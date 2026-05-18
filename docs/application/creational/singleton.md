@@ -79,19 +79,19 @@ public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
             StringComparer.OrdinalIgnoreCase,
             new[]
             {
-                new KeyValuePair<string, string>("event-published", "Yeni etkinlik yayında: {title}"),
-                new KeyValuePair<string, string>("event-reminder", "Etkinlik başlamak üzere: {title}")
+                new KeyValuePair<string, string>("event-published", "Yeni etkinlik yayında: {eventTitle}"),
+                new KeyValuePair<string, string>("event-reminder", "Etkinlik başlamak üzere: {eventTitle}")
             });
 
     /// <summary>
-    /// İstenen anahtar için şablon metnini getirir.
+    /// İstenen anahtar için ham şablon metnini getirir.
+    /// Dönen metindeki `{eventTitle}` gibi placeholder'lar çağıran tarafta doldurulur.
     /// </summary>
     public string Get(string templateKey)
     {
         if (!_templates.TryGetValue(templateKey, out var template))
         {
-            throw new KeyNotFoundException(
-                $"Template not found: {templateKey}. Available keys: {string.Join(", ", _templates.Keys)}");
+            throw new KeyNotFoundException($"Template not found: {templateKey}.");
         }
 
         return template;
