@@ -125,7 +125,7 @@ public interface IWorkshopRegistrationRepository
 /// <summary>
 /// Atölye kayıt akışının çıktı modelini temsil eder.
 /// </summary>
-public sealed record RegistrationResult(bool IsSuccess, string? Error)
+public sealed record RegistrationResult(bool IsSuccess, string? ErrorMessage)
 {
     /// <summary>
     /// Başarılı sonuç üretir.
