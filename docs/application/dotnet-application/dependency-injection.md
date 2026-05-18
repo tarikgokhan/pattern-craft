@@ -205,6 +205,9 @@ internal sealed class InMemoryWorkshopReservationRepository : IWorkshopReservati
 {
     public Task SaveAsync(WorkshopReservationRequest request, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request, nameof(request));
+        cancellationToken.ThrowIfCancellationRequested();
+
         return Task.CompletedTask;
     }
 }
@@ -219,6 +222,17 @@ internal sealed class ConsoleConfirmationChannel : IConfirmationChannel
         string workshopCode,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(emailAddress))
+        {
+            throw new ArgumentException("Email address is required.", nameof(emailAddress));
+        }
+
+        if (string.IsNullOrWhiteSpace(workshopCode))
+        {
+            throw new ArgumentException("Workshop code is required.", nameof(workshopCode));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
         Console.WriteLine($"{workshopCode} reservation confirmed for {emailAddress}.");
         return Task.CompletedTask;
     }
