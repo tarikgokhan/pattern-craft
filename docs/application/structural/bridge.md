@@ -18,7 +18,7 @@ Bu iki eksen tek sınıf hiyerarşisinde birleşince sınıf sayısı patlar, de
 - Yeni bir “teknik implementasyon” eklerken iş akışlarını bozmamak gerekiyorsa
 - Kalıtımla oluşan sınıf kombinasyonları artıyorsa (N x M problemi)
 
-## 3. Gerçek Hayat Senaryosu (Finans Dışı)
+## 3. Gerçek Hayat Senaryosu
 
 Bir **akıllı şehir etkinlik platformu** düşün: konser, atölye ve sergi duyuruları farklı formatlarda (kısa özet, detaylı bülten) hazırlanıyor; farklı kanallardan (mobil push, e-posta) gönderiliyor.
 
@@ -75,7 +75,7 @@ using System.Threading.Tasks;
 namespace PatternCraft.Bridge;
 
 /// <summary>
-/// Duyurunun hangi taşıma mekanizmasıyla gönderileceğini tanımlar.
+/// Mesajın hangi kanal üzerinden gönderileceğini tanımlar.
 /// </summary>
 public interface IMessageChannel
 {
@@ -118,19 +118,22 @@ public abstract class Announcement
 /// </summary>
 public sealed class ShortAnnouncement : Announcement
 {
+    private readonly string _content;
+
     /// <summary>
     /// ShortAnnouncement sınıfının yeni bir örneğini oluşturur.
     /// </summary>
     /// <param name="channel">Mesaj kanalı.</param>
-    public ShortAnnouncement(IMessageChannel channel) : base(channel)
+    /// <param name="content">Yayınlanacak kısa duyuru metni.</param>
+    public ShortAnnouncement(IMessageChannel channel, string content) : base(channel)
     {
+        _content = content;
     }
 
     /// <inheritdoc />
     public override Task PublishAsync(CancellationToken cancellationToken)
     {
-        const string content = "Bu akşam şehir parkında canlı müzik var!";
-        return Channel.SendAsync(content, cancellationToken);
+        return Channel.SendAsync(_content, cancellationToken);
     }
 }
 
@@ -139,22 +142,22 @@ public sealed class ShortAnnouncement : Announcement
 /// </summary>
 public sealed class DetailedAnnouncement : Announcement
 {
+    private readonly string _content;
+
     /// <summary>
     /// DetailedAnnouncement sınıfının yeni bir örneğini oluşturur.
     /// </summary>
     /// <param name="channel">Mesaj kanalı.</param>
-    public DetailedAnnouncement(IMessageChannel channel) : base(channel)
+    /// <param name="content">Yayınlanacak detaylı duyuru metni.</param>
+    public DetailedAnnouncement(IMessageChannel channel, string content) : base(channel)
     {
+        _content = content;
     }
 
     /// <inheritdoc />
     public override Task PublishAsync(CancellationToken cancellationToken)
     {
-        const string content =
-            "Cuma 20:00 konseri için kapılar 19:00'da açılıyor. " +
-            "Atölye kontenjanı sınırlıdır, uygulamadan kayıt olmayı unutmayın.";
-
-        return Channel.SendAsync(content, cancellationToken);
+        return Channel.SendAsync(_content, cancellationToken);
     }
 }
 
@@ -196,8 +199,14 @@ public static class Demo
     {
         var cancellationToken = CancellationToken.None;
 
-        Announcement shortByEmail = new ShortAnnouncement(new EmailChannel());
-        Announcement detailedByPush = new DetailedAnnouncement(new PushChannel());
+        Announcement shortByEmail = new ShortAnnouncement(
+            new EmailChannel(),
+            "Bu akşam şehir parkında canlı müzik var!");
+
+        Announcement detailedByPush = new DetailedAnnouncement(
+            new PushChannel(),
+            "Cuma 20:00 konseri için kapılar 19:00'da açılıyor. " +
+            "Atölye kontenjanı sınırlıdır, uygulamadan kayıt olmayı unutmayın.");
 
         await shortByEmail.PublishAsync(cancellationToken);
         await detailedByPush.PublishAsync(cancellationToken);
