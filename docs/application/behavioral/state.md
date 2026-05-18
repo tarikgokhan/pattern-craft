@@ -1,106 +1,270 @@
 # State
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Behavioral Patterns |
-| Pattern | State |
-| Dosya Yolu | `docs/application/behavioral/state.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application ve Domain davranışları |
+*Kategori: Application Design Patterns → Behavioral Patterns*
 
-## 1. Kısa Tanım
+State deseni, bir nesnenin davranışını içindeki güncel duruma göre değiştirmesini sağlar. Dışarıdan bakınca aynı nesneyle konuşursunuz; ama perde arkasında sahne değişmiştir. Taslak hâlindeki bir kayıtla onaylanmış bir kaydın aynı komutlara aynı tepkiyi vermemesi tam da bu desenin doğal yaşam alanıdır.
 
-State, nesnenin davranışını mevcut durumuna göre değiştirir.
+## 1. Problem Tanımı
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Bir nesnenin yaşam döngüsü ilerledikçe kurallar da değişiyorsa, kod hızla `if`, `switch` ve “bu durumda şunu yap, diğer durumda bunu engelle” cümleleriyle dolmaya başlar. İlk başta masum görünen bu karar ağaçları zamanla şunlara yol açar:
 
-## 2. Çözdüğü Problem
+- Aynı durum kontrolünün farklı sınıflarda tekrar etmesine
+- Geçersiz geçişlerin gözden kaçmasına
+- Yeni durum eklemenin mevcut akışı kırma riskini artırmasına
+- Testlerin, tek bir sınıfın içindeki çok sayıda senaryoya sıkışmasına
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+State, bu yükü tek bir sınıfa yığmak yerine her durumu kendi davranışıyla temsil eder. Böylece “nesnenin şu an ne yaptığı” ile “bir sonraki adımda ne yapabileceği” aynı yerde toplanır.
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+## 2. Ne Zaman Kullanılır?
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+State özellikle şu anlarda parlamaya başlar:
 
-## 3. Kurumsal Talep Yönetimi Örneği
+- Nesnenin farklı aşamalarda farklı iş kurallarına uyması gerektiğinde
+- Geçiş kurallarının açıkça modellenmesi istendiğinde
+- `if/else` blokları yeni durumlar geldikçe uzayıp okunmaz hâle geldiğinde
+- Aynı yaşam döngüsünün farklı adımlarını bağımsız test etmek istendiğinde
+- Domain dilinde “taslak”, “yayında”, “iptal”, “beklemede” gibi belirgin durumlar varsa
 
-Talebin davranışı Draft, Submitted, WaitingForApproval veya Completed durumuna göre değişir.
+Kısacası, davranış gerçekten duruma bağlıysa ve bu ilişki görünür kılınmak isteniyorsa State iyi bir adaydır.
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+## 3. Gerçek Hayat Senaryosu
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+Bir yaratıcı yazarlık atölyesi için kayıt sistemi düşünün. Katılımcı kaydı önce `Draft` olarak oluşturulur. Form tamamlanınca `Submitted` olur. Eğitmen kontenjanı ayırdığında kayıt `Confirmed` durumuna geçer. Etkinlik başlamadan önce vazgeçilirse `Cancelled` olur.
 
-Durum bazlı davranışları if/switch bloklarına yaymak yerine state sınıflarıyla yönetmek mümkündür.
+Buradaki kritik nokta şudur: `Submit`, `Confirm` ve `Cancel` komutları her durumda aynı anlama gelmez. Örneğin:
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+- `Draft` durumundaki bir kayıt gönderilebilir.
+- `Submitted` durumundaki kayıt tekrar gönderilemez ama onaylanabilir.
+- `Confirmed` durumundaki bir kayıt artık yeniden onaylanmaz.
+- `Cancelled` durumundaki bir kayıt ise akışın dışına çıkmıştır.
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+State deseni bu farkları tek merkezde toplayıp “hangi durumda ne mümkündür?” sorusunu anlaşılır bir modele dönüştürür.
 
-## 5. Basit Akış
+## 4. .NET/C# İçinde Kullanım Yaklaşımı
 
-```text
-Request Aggregate -> Current State -> State Behavior
+.NET tarafında en yaygın yaklaşım; bir context sınıfı, bir state arayüzü ve her durum için ayrı sınıflar tanımlamaktır. Context, aktif state nesnesini tutar; gelen komutları ona delegasyonla iletir. State nesnesi hem geçerli davranışı üretir hem de gerekiyorsa bir sonraki state'e geçişi yönetir.
+
+Bu yaklaşım özellikle şu kazanımları getirir:
+
+- Domain davranışı okunur hâle gelir.
+- Geçiş kuralları gizli koşullar yerine adlandırılmış sınıflarda yaşar.
+- Yeni durum eklemek mevcut durumların içine dağılmış koşulları kurcalamaktan daha güvenli olur.
+- Unit test yazarken her state sınıfı izole biçimde doğrulanabilir.
+
+## 5. Mermaid Diyagramı
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Submitted: Submit
+    Submitted --> Confirmed: Confirm
+    Draft --> Cancelled: Cancel
+    Submitted --> Cancelled: Cancel
+    Confirmed --> Cancelled: Cancel
+    Cancelled --> [*]
 ```
 
-## 6. Örnek Kod / Taslak
+## 6. C# Örnek Kod
+
+Aşağıdaki örnek, atölye kaydının durumuna göre davranışın nasıl değiştiğini gösterir. Kod tek dosyada derlenebilir durumdadır ve public yüzeyde XML documentation comments bulunur.
 
 ```csharp
-public interface IRequestState
+namespace PatternCraft.StateSample;
+
+/// <summary>
+/// Bir atölye kaydının o anki davranışını temsil eder.
+/// </summary>
+public interface IRegistrationState
 {
-    Result Submit(Request request);
-    Result Approve(Request request);
-    Result Cancel(Request request);
+    /// <summary>
+    /// Durumun ekranda gösterilecek adını döndürür.
+    /// </summary>
+    string Name { get; }
+
+    /// <summary>
+    /// Kaydı gönderir.
+    /// </summary>
+    RegistrationResult Submit(WorkshopRegistration registration);
+
+    /// <summary>
+    /// Kaydı onaylar.
+    /// </summary>
+    RegistrationResult Confirm(WorkshopRegistration registration);
+
+    /// <summary>
+    /// Kaydı iptal eder.
+    /// </summary>
+    RegistrationResult Cancel(WorkshopRegistration registration);
+}
+
+/// <summary>
+/// State nesnelerinin ortak davranışlarını sadeleştiren temel sınıftır.
+/// </summary>
+public abstract class RegistrationStateBase : IRegistrationState
+{
+    /// <inheritdoc />
+    public abstract string Name { get; }
+
+    /// <inheritdoc />
+    public virtual RegistrationResult Submit(WorkshopRegistration registration)
+        => RegistrationResult.Fail($"'{Name}' durumundayken kayıt gönderilemez.");
+
+    /// <inheritdoc />
+    public virtual RegistrationResult Confirm(WorkshopRegistration registration)
+        => RegistrationResult.Fail($"'{Name}' durumundayken kayıt onaylanamaz.");
+
+    /// <inheritdoc />
+    public virtual RegistrationResult Cancel(WorkshopRegistration registration)
+    {
+        registration.TransitionTo(new CancelledState());
+        return RegistrationResult.Success("Kayıt iptal edildi.");
+    }
+}
+
+/// <summary>
+/// Kayıt akışını yöneten context sınıfıdır.
+/// </summary>
+public sealed class WorkshopRegistration
+{
+    private IRegistrationState _state = new DraftState();
+
+    /// <summary>
+    /// Katılımcının görünen adını alır.
+    /// </summary>
+    public string ParticipantName { get; }
+
+    /// <summary>
+    /// Kaydın mevcut durum adını alır.
+    /// </summary>
+    public string CurrentState => _state.Name;
+
+    /// <summary>
+    /// Yeni bir atölye kaydı oluşturur.
+    /// </summary>
+    /// <param name="participantName">Katılımcı adı.</param>
+    public WorkshopRegistration(string participantName)
+    {
+        ParticipantName = participantName;
+    }
+
+    /// <summary>
+    /// Kayıt formunu gönderir.
+    /// </summary>
+    public RegistrationResult Submit() => _state.Submit(this);
+
+    /// <summary>
+    /// Kaydı kontenjan için onaylar.
+    /// </summary>
+    public RegistrationResult Confirm() => _state.Confirm(this);
+
+    /// <summary>
+    /// Kaydı iptal eder.
+    /// </summary>
+    public RegistrationResult Cancel() => _state.Cancel(this);
+
+    internal void TransitionTo(IRegistrationState newState)
+    {
+        _state = newState;
+    }
+}
+
+/// <summary>
+/// Taslak durumundaki kaydı temsil eder.
+/// </summary>
+public sealed class DraftState : RegistrationStateBase
+{
+    /// <inheritdoc />
+    public override string Name => "Draft";
+
+    /// <inheritdoc />
+    public override RegistrationResult Submit(WorkshopRegistration registration)
+    {
+        registration.TransitionTo(new SubmittedState());
+        return RegistrationResult.Success("Kayıt değerlendirme kuyruğuna gönderildi.");
+    }
+}
+
+/// <summary>
+/// Gönderilmiş kaydı temsil eder.
+/// </summary>
+public sealed class SubmittedState : RegistrationStateBase
+{
+    /// <inheritdoc />
+    public override string Name => "Submitted";
+
+    /// <inheritdoc />
+    public override RegistrationResult Confirm(WorkshopRegistration registration)
+    {
+        registration.TransitionTo(new ConfirmedState());
+        return RegistrationResult.Success("Kayıt kontenjana yerleştirildi.");
+    }
+}
+
+/// <summary>
+/// Onaylanmış kaydı temsil eder.
+/// </summary>
+public sealed class ConfirmedState : RegistrationStateBase
+{
+    /// <inheritdoc />
+    public override string Name => "Confirmed";
+}
+
+/// <summary>
+/// İptal edilmiş kaydı temsil eder.
+/// </summary>
+public sealed class CancelledState : RegistrationStateBase
+{
+    /// <inheritdoc />
+    public override string Name => "Cancelled";
+
+    /// <inheritdoc />
+    public override RegistrationResult Cancel(WorkshopRegistration registration)
+        => RegistrationResult.Fail("Kayıt zaten iptal edilmiş durumda.");
+}
+
+/// <summary>
+/// İşlem sonucunu sade bir değer nesnesi olarak taşır.
+/// </summary>
+/// <param name="Succeeded">İşlemin başarılı olup olmadığını belirtir.</param>
+/// <param name="Message">İşlem sonucuna ilişkin açıklamayı içerir.</param>
+public sealed record RegistrationResult(bool Succeeded, string Message)
+{
+    /// <summary>
+    /// Başarılı bir sonuç üretir.
+    /// </summary>
+    public static RegistrationResult Success(string message) => new(true, message);
+
+    /// <summary>
+    /// Başarısız bir sonuç üretir.
+    /// </summary>
+    public static RegistrationResult Fail(string message) => new(false, message);
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+## 7. Avantajlar
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+- Duruma bağlı davranışları tek bir dev koşul bloğu yerine anlamlı sınıflara böler.
+- Geçiş kurallarını görünür hâle getirir; “hangi adım nereden sonra gelir?” sorusu netleşir.
+- Yeni durum eklemeyi, var olan akışları daha az sarsan bir değişikliğe dönüştürür.
+- Her state ayrı test edilebildiği için hata ayıklamayı kolaylaştırır.
+- Domain dilini koda daha doğal taşır.
 
-## 8. Ne Zaman Kullanılmamalıdır?
+## 8. Riskler ve Trade-off'lar
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Durum sayısı çok arttığında sınıf sayısı da artar; küçük problemler için fazla gelebilir.
+- Geçişler iyi adlandırılmazsa desen işleri sadeleştirmek yerine dağıtabilir.
+- Context ile state arasındaki sorumluluk sınırı belirsiz bırakılırsa “geçişi kim yönetiyor?” sorusu karmaşa yaratabilir.
+- Sadece iki sabit davranış varsa, State yerine daha sade bir model yeterli olabilir.
 
-## 9. Avantajlar
+Bu yüzden State'i, gerçekten yaşayan bir yaşam döngüsü olan alanlarda kullanmak en sağlıklı yaklaşımdır.
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
+## 9. Test Edilebilirlik Notları
 
-## 10. Dikkat Edilecekler
+State deseninin en güzel yanlarından biri testlere nefes aldırmasıdır. `DraftState`, `SubmittedState` ve `CancelledState` gibi sınıflar ayrı ayrı ele alınabilir. Örneğin:
 
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
+- `Draft` durumunda `Submit` çağrısının başarıyla `Submitted` durumuna geçtiği
+- `Submitted` durumunda ikinci kez `Submit` çağrısının reddedildiği
+- `Confirmed` durumunda `Cancel` çağrısının izinli olup olmadığı
+- `Cancelled` durumunda tüm tekrar işlemlerinin beklenen hata mesajını verdiği
 
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+Bu yapı sayesinde testler “büyük akış testi” olmak zorunda kalmaz; her durumun kuralı kendi başına doğrulanabilir. Özellikle xUnit, NUnit veya MSTest ile state bazlı senaryoları kısa ve anlaşılır testlerle modellemek oldukça rahattır.
