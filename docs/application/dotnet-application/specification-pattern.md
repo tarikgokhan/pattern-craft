@@ -88,6 +88,7 @@ public interface ISpecification<T>
 
     /// <summary>
     /// İki specification'ı VE (AND) operatörü ile birleştirir.
+    /// Bu varsayılan arayüz implementasyonudur; ihtiyaç halinde somut sınıflar farklı birleştirme davranışı uygulayabilir.
     /// </summary>
     /// <param name="other">Birleştirilecek diğer specification.</param>
     /// <returns>Her iki kuralı da doğrulayan bileşik specification.</returns>
@@ -109,6 +110,7 @@ public interface ISpecification<T>
 
 /// <summary>
 /// İki specification'ı VE (AND) operatörü ile birleştirir.
+/// Bu sınıf çoğunlukla doğrudan oluşturulmaz; <see cref="ISpecification{T}.And(ISpecification{T})"/> çağrısı ile üretilir.
 /// </summary>
 /// <typeparam name="T">Kuralın değerlendirileceği model tipi.</typeparam>
 public sealed class AndSpecification<T>(ISpecification<T> left, ISpecification<T> right) : ISpecification<T>
@@ -196,7 +198,8 @@ public sealed class ApplicantMeetsAgeRequirementSpecification(int minimumAge) : 
 public sealed class RegistrationDeadlineNotPassedSpecification(TimeProvider timeProvider) : ISpecification<WorkshopRegistration>
 {
     /// <summary>
-    /// Başvurunun son tarihten önce yapılıp yapılmadığını döner.
+    /// Başvurunun son tarihte veya daha önce yapılıp yapılmadığını döner.
+    /// Bu örnekte son tarih eşitliği kabul edilir (inclusive deadline).
     /// </summary>
     /// <param name="candidate">Değerlendirilecek başvuru.</param>
     /// <returns>Son tarih geçmediyse <see langword="true"/>.</returns>
