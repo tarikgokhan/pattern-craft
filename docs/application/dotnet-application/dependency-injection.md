@@ -27,7 +27,7 @@ Dependency Injection bu düğümü çözer. Sınıf yalnızca “neye ihtiyacı 
 
 ## 4. Gerçek Hayattan Bir Senaryo
 
-Bir yaratıcı atölye rezervasyon platformu düşünün. Kullanıcı bir seramik atölyesi için rezervasyon yaptığında sistemin iki temel işi vardır: rezervasyonu kaydetmek ve katılımcıya onay mesajı göndermek.
+Bir yaratıcı atölyesi rezervasyon platformu düşünün. Kullanıcı bir seramik atölyesi için rezervasyon yaptığında sistemin iki temel işi vardır: rezervasyonu kaydetmek ve katılımcıya onay mesajı göndermek.
 
 Eğer `WorkshopReservationService` bu servislerin hepsini kendi içinde üretürse, sınıf kısa sürede küçük bir orkestradan çok tek kişilik bir sahne gösterisine dönüşür. Oysa bağımlılıklar dışarıdan verildiğinde servis yalnızca akışı yönetir: “rezervasyonu kaydet, mesajı gönder, işlem tamam.” Bu yapı hem okunur hem de kolayca test edilir.
 
@@ -72,11 +72,37 @@ namespace PatternCraft.DependencyInjectionSample;
 /// <summary>
 /// Represents a workshop reservation request created by a participant.
 /// </summary>
-/// <param name="WorkshopCode">The code of the selected workshop.</param>
-/// <param name="ParticipantEmail">The participant email address.</param>
-public sealed record WorkshopReservationRequest(
-    string WorkshopCode,
-    string ParticipantEmail);
+public sealed record WorkshopReservationRequest
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WorkshopReservationRequest"/> class.
+    /// </summary>
+    /// <param name="workshopCode">The code of the selected workshop.</param>
+    /// <param name="participantEmail">The participant email address.</param>
+    /// <exception cref="ArgumentException">
+    /// Thrown when the workshop code or participant email is empty.
+    /// </exception>
+    public WorkshopReservationRequest(string workshopCode, string participantEmail)
+    {
+        WorkshopCode = string.IsNullOrWhiteSpace(workshopCode)
+            ? throw new ArgumentException("Workshop code is required.", nameof(workshopCode))
+            : workshopCode;
+
+        ParticipantEmail = string.IsNullOrWhiteSpace(participantEmail)
+            ? throw new ArgumentException("Participant email is required.", nameof(participantEmail))
+            : participantEmail;
+    }
+
+    /// <summary>
+    /// Gets the code of the selected workshop.
+    /// </summary>
+    public string WorkshopCode { get; }
+
+    /// <summary>
+    /// Gets the participant email address.
+    /// </summary>
+    public string ParticipantEmail { get; }
+}
 
 /// <summary>
 /// Persists workshop reservations.
@@ -194,7 +220,7 @@ internal sealed class ConsoleConfirmationChannel : IConfirmationChannel
 }
 ```
 
-Bu örnekte use-case sınıfı herhangi bir somut repository veya onay kanalı üretmiyor. Bu küçük tercih çok büyük bir rahatlık sağlar: altyapı değişse bile iş akışının kendisi yerinden oynamaz.
+Bu örnekte use-case sınıfı herhangi bir somut repository veya onay kanalı üretmiyor. Bu küçük tercih çok büyük bir rahatlık sağlar: altyapı değişse bile iş akışının kendisi yerinden oynamaz. Gerçek bir ASP.NET Core uygulamasında bu bağlama çoğunlukla `Program.cs` içindeki DI container kayıtlarıyla yapılır; burada ise örneğin kısa ve tek başına derlenebilir kalması için manuel bir composition noktası gösterilmiştir.
 
 ## 8. Avantajlar
 
