@@ -2,7 +2,7 @@
 
 ## 1. Kısa Tanım
 
-Strategy, değişebilen bir algoritma ailesini ortak bir arayüz arkasına alır ve çalışma anında uygun algoritmayı seçilebilir hale getirir. Böylece “aynı işi farklı kurallarla yapma” ihtiyacı geldiğinde mevcut akışı parçalamadan ilerleyebilirsin.
+Strategy, değişebilir bir algoritma ailesini ortak bir arayüz arkasına alır ve çalışma anında uygun algoritmayı seçilebilir hale getirir. Böylece “aynı işi farklı kurallarla yapma” ihtiyacı geldiğinde mevcut akışı parçalamadan ilerleyebilirsin.
 
 ## 2. Çözdüğü Problem
 
@@ -108,11 +108,15 @@ public interface IRouteStrategy
 /// </summary>
 public sealed class FastRouteStrategy : IRouteStrategy
 {
+    private const int NearDistanceMinutes = 20;
+    private const int FarDistanceMinutes = 35;
+    private const int FragilePackageMinutes = 10;
+
     /// <inheritdoc />
     public RoutePlan BuildPlan(CargoOrder order)
     {
-        var baseMinutes = order.DistanceInKm <= 5m ? 20 : 35;
-        var fragilePenalty = order.IsFragile ? 10 : 0;
+        var baseMinutes = order.DistanceInKm <= 5m ? NearDistanceMinutes : FarDistanceMinutes;
+        var fragilePenalty = order.IsFragile ? FragilePackageMinutes : 0;
 
         return new RoutePlan("Fast", baseMinutes + fragilePenalty);
     }
@@ -123,11 +127,15 @@ public sealed class FastRouteStrategy : IRouteStrategy
 /// </summary>
 public sealed class EconomicRouteStrategy : IRouteStrategy
 {
+    private const int NearDistanceMinutes = 35;
+    private const int FarDistanceMinutes = 55;
+    private const int FragilePackageMinutes = 5;
+
     /// <inheritdoc />
     public RoutePlan BuildPlan(CargoOrder order)
     {
-        var baseMinutes = order.DistanceInKm <= 5m ? 35 : 55;
-        var fragilePenalty = order.IsFragile ? 5 : 0;
+        var baseMinutes = order.DistanceInKm <= 5m ? NearDistanceMinutes : FarDistanceMinutes;
+        var fragilePenalty = order.IsFragile ? FragilePackageMinutes : 0;
 
         return new RoutePlan("Economic", baseMinutes + fragilePenalty);
     }
@@ -138,11 +146,15 @@ public sealed class EconomicRouteStrategy : IRouteStrategy
 /// </summary>
 public sealed class GreenRouteStrategy : IRouteStrategy
 {
+    private const int NearDistanceMinutes = 40;
+    private const int FarDistanceMinutes = 60;
+    private const int FragilePackageMinutes = 5;
+
     /// <inheritdoc />
     public RoutePlan BuildPlan(CargoOrder order)
     {
-        var baseMinutes = order.DistanceInKm <= 5m ? 40 : 60;
-        var fragilePenalty = order.IsFragile ? 5 : 0;
+        var baseMinutes = order.DistanceInKm <= 5m ? NearDistanceMinutes : FarDistanceMinutes;
+        var fragilePenalty = order.IsFragile ? FragilePackageMinutes : 0;
 
         return new RoutePlan("Green", baseMinutes + fragilePenalty);
     }
