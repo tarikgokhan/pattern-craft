@@ -120,7 +120,8 @@ public sealed class CreateWorkshopRegistrationHandler
         {
             registration = WorkshopRegistration.Create(command.WorkshopId, command.ParticipantEmail);
         }
-        catch (ArgumentException)
+        catch (Exception exception) when (
+            exception is ArgumentException or InvalidOperationException)
         {
             return CommandResult.Failure("Workshop registration validation failed.");
         }
