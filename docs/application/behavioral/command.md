@@ -114,12 +114,15 @@ public sealed class CreateWorkshopRegistrationHandler
         CreateWorkshopRegistrationCommand command,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(command.ParticipantEmail))
+        WorkshopRegistration registration;
+        try
         {
-            return CommandResult.Failure("Participant email is required.");
+            registration = WorkshopRegistration.Create(command.WorkshopId, command.ParticipantEmail);
         }
-
-        var registration = WorkshopRegistration.Create(command.WorkshopId, command.ParticipantEmail);
+        catch (ArgumentException exception)
+        {
+            return CommandResult.Failure(exception.Message);
+        }
 
         await _repository.AddAsync(registration, cancellationToken);
 
@@ -129,10 +132,9 @@ public sealed class CreateWorkshopRegistrationHandler
                 $"Workshop registration created: {registration.Id}",
                 cancellationToken);
         }
-        catch
+        catch (Exception)
         {
-            return CommandResult.Failure(
-                "Registration created but audit logging failed. Prefer transactional outbox in production.");
+            return CommandResult.Failure("Audit logging failed after registration creation.");
         }
 
         return CommandResult.Success();
@@ -214,21 +216,29 @@ public sealed class WorkshopRegistration
     /// <param name="workshopId">Atölye kimliği.</param>
     /// <param name="participantEmail">Katılımcı e-posta adresi.</param>
     /// <returns>Yeni oluşturulan kayıt nesnesi.</returns>
-    public static WorkshopRegistration Create(Guid workshopId, string participantEmail) =>
-        workshopId == Guid.Empty
-            ? throw new ArgumentException("Workshop id cannot be empty.", nameof(workshopId))
-            : string.IsNullOrWhiteSpace(participantEmail)
-                ? throw new ArgumentException("Participant email is required.", nameof(participantEmail))
-                : new WorkshopRegistration
-                {
-                    Id = Guid.NewGuid(),
-                    WorkshopId = workshopId,
-                    ParticipantEmail = participantEmail
-                };
+    public static WorkshopRegistration Create(Guid workshopId, string participantEmail)
+    {
+        if (workshopId == Guid.Empty)
+        {
+            throw new ArgumentException("Workshop id cannot be empty.", nameof(workshopId));
+        }
+
+        if (string.IsNullOrWhiteSpace(participantEmail))
+        {
+            throw new ArgumentException("Participant email is required.", nameof(participantEmail));
+        }
+
+        return new WorkshopRegistration
+        {
+            Id = Guid.NewGuid(),
+            WorkshopId = workshopId,
+            ParticipantEmail = participantEmail
+        };
+    }
 }
 ```
 
-## 7. Gerçek Hayat Senaryosu (Finans Dışı)
+## 7. Gerçek Hayat Senaryosu
 
 Bir eğitim platformunda kullanıcılar atölyelere kayıt oluyor. Web uygulaması, mobil uygulama ve bir partner portalı aynı kaydı farklı noktalardan tetikleyebiliyor.  
 
@@ -237,6 +247,7 @@ Bir eğitim platformunda kullanıcılar atölyelere kayıt oluyor. Web uygulamas
 - Kayıt adımı her kanalda aynı kurallarla çalışır.
 - Audit log her işlemde standart şekilde tutulur.
 - Yarın “kayıt sonrası hoş geldin e-postası kuyruğa yazılsın” denildiğinde yalnızca ilgili handler akışı genişletilir.
+- Üretimde kalıcılık ve audit adımlarını atomik yürütmek için Transactional Outbox yaklaşımı eklenebilir.
 
 ## 8. Test Edilebilirlik Notları
 
