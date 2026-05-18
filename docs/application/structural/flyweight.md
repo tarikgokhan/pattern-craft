@@ -155,7 +155,7 @@ public sealed class TreeStyle
     /// <returns>Çizim sonucunu temsil eden metni döner.</returns>
     public string Render(TreePlacement placement)
     {
-        return $"{Species} ağacı ({placement.X}, {placement.Y}) noktasında, {placement.HeightInMeters} metre yükseklikle çizildi. Doku={TexturePath}, YaprakRengi={LeafColor}";
+        return $"{Species} ağacı ({placement.X}, {placement.Y}) noktasında, {placement.HeightInMeters} metre yükseklikle çizildi. Doku: {TexturePath}, Yaprak Rengi: {LeafColor}";
     }
 }
 
@@ -264,6 +264,7 @@ public static class Demo
 
         var oakStyle = factory.GetOrCreate("Meşe", "/textures/oak.png", "Yeşil");
         var anotherOakStyle = factory.GetOrCreate("Meşe", "/textures/oak.png", "Yeşil");
+        var sameStyleIsShared = ReferenceEquals(oakStyle, anotherOakStyle);
 
         var trees = new List<Tree>
         {
@@ -272,7 +273,7 @@ public static class Demo
             new(factory.GetOrCreate("Çam", "/textures/pine.png", "KoyuYeşil"), new TreePlacement(40, 8, 9))
         };
 
-        Console.WriteLine($"Aynı stil paylaşılıyor mu? {(ReferenceEquals(oakStyle, anotherOakStyle) ? "Evet" : "Hayır")}");
+        Console.WriteLine($"Aynı stil paylaşılıyor mu? {(sameStyleIsShared ? "Evet" : "Hayır")}");
 
         foreach (var tree in trees)
         {
