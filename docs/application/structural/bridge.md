@@ -31,14 +31,14 @@ Bridge ile “duyuru hazırlama” tarafı, “hangi kanalla gönderildiği” b
 
 ```mermaid
 classDiagram
-    class MessageChannel {
+    class IMessageChannel {
         <<interface>>
         +SendAsync(string content, CancellationToken cancellationToken) Task
     }
 
     class Announcement {
         <<abstract>>
-        #channel: MessageChannel
+        #channel: IMessageChannel
         +PublishAsync(CancellationToken cancellationToken) Task
     }
 
@@ -58,11 +58,11 @@ classDiagram
         +SendAsync(string content, CancellationToken cancellationToken) Task
     }
 
-    Announcement --> MessageChannel : uses
+    Announcement --> IMessageChannel : uses
     ShortAnnouncement --|> Announcement
     DetailedAnnouncement --|> Announcement
-    EmailChannel ..|> MessageChannel
-    PushChannel ..|> MessageChannel
+    EmailChannel ..|> IMessageChannel
+    PushChannel ..|> IMessageChannel
 ```
 
 ## 5. C# Örnek Kod
@@ -133,7 +133,8 @@ public sealed class ShortAnnouncement : Announcement
     /// <inheritdoc />
     public override Task PublishAsync(CancellationToken cancellationToken)
     {
-        return Channel.SendAsync(_content, cancellationToken);
+        var formatted = $"🎫 {_content}";
+        return Channel.SendAsync(formatted, cancellationToken);
     }
 }
 
@@ -157,7 +158,8 @@ public sealed class DetailedAnnouncement : Announcement
     /// <inheritdoc />
     public override Task PublishAsync(CancellationToken cancellationToken)
     {
-        return Channel.SendAsync(_content, cancellationToken);
+        var formatted = $"Etkinlik Bülteni: {_content}";
+        return Channel.SendAsync(formatted, cancellationToken);
     }
 }
 
@@ -205,8 +207,7 @@ public static class Demo
 
         Announcement detailedByPush = new DetailedAnnouncement(
             new PushChannel(),
-            "Cuma 20:00 konseri için kapılar 19:00'da açılıyor. " +
-            "Atölye kontenjanı sınırlıdır, uygulamadan kayıt olmayı unutmayın.");
+            "Cuma 20:00 konseri için kapılar 19:00'da açılıyor. Atölye kontenjanı sınırlıdır, uygulamadan kayıt olmayı unutmayın.");
 
         await shortByEmail.PublishAsync(cancellationToken);
         await detailedByPush.PublishAsync(cancellationToken);
