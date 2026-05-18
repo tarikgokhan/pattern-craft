@@ -36,7 +36,7 @@ Bu akışta controller'ın kontenjan servisini, bildirim servisini ve audit bile
 - Use-case bazlı handler organizasyonu arıyorsanız
 - Unit testlerde davranışı izole etmek istiyorsanız
 
-## 5. Mermaid Diyagramı
+## 5. Mermaid Diyagram
 
 ```mermaid
 flowchart LR
@@ -44,8 +44,6 @@ flowchart LR
     B --> C[CreateWorkshopRegistrationCommandHandler]
     C --> D[KontenjanKontrolServisi]
     C --> E[KayitDeposu]
-    C --> F[AuditServisi]
-    C --> G[BildirimKuyrugu]
 ```
 
 ## 6. C# Örnek Kodu
