@@ -79,7 +79,7 @@ public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
             StringComparer.OrdinalIgnoreCase,
             new[]
             {
-                new KeyValuePair<string, string>("event-published", "Yeni etkinlik yayında: {eventTitle}"),
+                new KeyValuePair<string, string>("event-published", "Yeni etkinlik yayınlandı: {eventTitle}"),
                 new KeyValuePair<string, string>("event-reminder", "Etkinlik başlamak üzere: {eventTitle}")
             });
 
@@ -90,9 +90,14 @@ public sealed class NotificationTemplateRegistry : INotificationTemplateRegistry
     /// </summary>
     public string Get(string templateKey)
     {
+        if (string.IsNullOrWhiteSpace(templateKey))
+        {
+            throw new ArgumentException("Şablon anahtarı boş olamaz.", nameof(templateKey));
+        }
+
         if (!_templates.TryGetValue(templateKey, out var template))
         {
-            throw new KeyNotFoundException($"Template not found: {templateKey}.");
+            throw new KeyNotFoundException($"Şablon bulunamadı: {templateKey}.");
         }
 
         return template;
