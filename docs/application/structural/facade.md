@@ -1,108 +1,178 @@
 # Facade
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Structural Patterns |
-| Pattern | Facade |
-| Dosya Yolu | `docs/application/structural/facade.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Infrastructure, Application veya API sınırı |
-
 ## 1. Kısa Tanım
 
-Facade, karmaşık alt sistemleri sade bir arayüzle dışarı açar.
-
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Facade, karmaşık alt sistemlerin dağınık sesini tek bir net komuta dönüştürür. Dışarıdan bakan biri onlarca teknik adımı görmek zorunda kalmaz; sadece ne istediğini söyler, Facade ise perde arkasındaki akışı düzenler.
 
 ## 2. Çözdüğü Problem
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+Gerçek projelerde akışlar büyüdükçe aynı sahne sık görülür: bir endpoint doğrulama yapar, başka bir servis veri hazırlar, bir başkası bildirim tetikler, diğeri log yazar. Birkaç sprint sonra kod, davranıştan çok operasyonel ayrıntı anlatmaya başlar.
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+Facade bu dağınıklığı toparlar ve özellikle şu noktalarda nefes aldırır:
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+- Controller/handler sınıflarını sadeleştirir.
+- İş akışını tek bir giriş noktasında okunur hale getirir.
+- Alt servis bağımlılıklarını çağıran katmandan gizler.
+- Değişikliklerin etkisini daha dar bir alana toplar.
 
-## 3. Kurumsal Talep Yönetimi Örneği
+## 3. Ne Zaman Kullanılır?
 
-Talep oluşturma, onay akışı, audit log ve bildirim tetikleme işlemleri sade bir API altında toplanır.
+- Aynı iş akışını birden fazla yerde tekrar yazmaya başladıysan
+- Uygulama katmanındaki use-case akışı teknik detaylarla boğuluyorsa
+- Dışa açık katmanlarda (API, application service) daha temiz bir arayüz istiyorsan
+- Testlerde iş akışını tek bir nesne üzerinden doğrulamak istiyorsan
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+## 4. Ne Zaman Kullanılmamalıdır?
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+- Problem hâlâ çok küçük ve doğrudan çağrı daha anlaşılırsa
+- Tek bir metotla çözülecek basit akış için gereksiz soyutlama oluşacaksa
+- Ekip, Facade’in sorumluluğunu “her şeyi yapan sınıf”a çevirecekse
 
-`RequestWorkflowFacade` gibi bir sınıf karmaşık alt servisleri tek bir kullanım yüzeyiyle sunabilir.
+## 5. Avantajlar ve Riskler
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+### Avantajlar
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+- Karmaşık iş akışını daha anlaşılır hale getirir.
+- Üst katmanların alt servisleri bilme ihtiyacını azaltır.
+- Bakım maliyetini düşürür; değişiklikleri merkezileştirir.
+- Test senaryolarını daha odaklı yazmayı kolaylaştırır.
 
-## 5. Basit Akış
+### Riskler
 
-```text
-Controller -> Facade -> Multiple Application Services
+- Facade zamanla aşırı büyüyüp “god class” haline gelebilir.
+- Yanlış sınır çizilirse sadece ekstra katman etkisi yaratır.
+- Alt servis sözleşmeleri çok sık değişiyorsa Facade kırılganlaşabilir.
+
+## 6. UML / Mermaid Diyagramı
+
+```mermaid
+flowchart LR
+    Api[IssueController] --> Facade[IssueWorkflowFacade]
+    Facade --> Validator[IssueValidator]
+    Facade --> Assignment[AssignmentService]
+    Facade --> Activity[ActivityFeedService]
+    Facade --> Notifier[NotificationService]
 ```
 
-## 6. Örnek Kod / Taslak
+## 7. C# Örnek Kodu
 
 ```csharp
-public sealed class RequestWorkflowFacade
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PatternCraft.Structural.Facade;
+
+/// <summary>
+/// Görev açma sürecindeki alt servisleri tek bir kullanım yüzeyinde toplar.
+/// </summary>
+public sealed class IssueWorkflowFacade
 {
-    public Task<Result> SubmitForApprovalAsync(Guid requestId, CancellationToken cancellationToken)
+    private readonly IIssueValidator _validator;
+    private readonly IAssignmentService _assignmentService;
+    private readonly IActivityFeedService _activityFeedService;
+    private readonly INotificationService _notificationService;
+
+    /// <summary>
+    /// <see cref="IssueWorkflowFacade"/> sınıfının yeni bir örneğini oluşturur.
+    /// </summary>
+    public IssueWorkflowFacade(
+        IIssueValidator validator,
+        IAssignmentService assignmentService,
+        IActivityFeedService activityFeedService,
+        INotificationService notificationService)
     {
-        // Validate, update status, write audit log and publish notification event.
-        return Task.FromResult(Result.Success());
+        _validator = validator;
+        _assignmentService = assignmentService;
+        _activityFeedService = activityFeedService;
+        _notificationService = notificationService;
     }
+
+    /// <summary>
+    /// Yeni bir görevi doğrular, atar, aktivite akışına yazar ve bildirim gönderir.
+    /// </summary>
+    public async Task<IssueResult> OpenIssueAsync(IssueDraft draft, CancellationToken cancellationToken)
+    {
+        _validator.Validate(draft);
+
+        var issueId = await _assignmentService.CreateAndAssignAsync(draft, cancellationToken);
+        await _activityFeedService.PublishAsync(issueId, "IssueOpened", cancellationToken);
+        await _notificationService.NotifyAssigneeAsync(issueId, cancellationToken);
+
+        return IssueResult.Success(issueId);
+    }
+}
+
+/// <summary>
+/// Görev açma isteğini temsil eder.
+/// </summary>
+public sealed record IssueDraft(string Title, string Description, string AssigneeEmail);
+
+/// <summary>
+/// İşlem sonucunu temsil eder.
+/// </summary>
+public sealed record IssueResult(bool IsSuccess, Guid IssueId)
+{
+    /// <summary>
+    /// Başarılı sonuç üretir.
+    /// </summary>
+    public static IssueResult Success(Guid issueId) => new(true, issueId);
+}
+
+/// <summary>
+/// Taslak verinin kurallara uygunluğunu denetler.
+/// </summary>
+public interface IIssueValidator
+{
+    /// <summary>
+    /// Taslak veriyi doğrular.
+    /// </summary>
+    void Validate(IssueDraft draft);
+}
+
+/// <summary>
+/// Görevin oluşturulması ve bir kişiye atanmasını yönetir.
+/// </summary>
+public interface IAssignmentService
+{
+    /// <summary>
+    /// Görevi oluşturur ve atar.
+    /// </summary>
+    Task<Guid> CreateAndAssignAsync(IssueDraft draft, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Aktivite akışı kayıtlarını yayınlar.
+/// </summary>
+public interface IActivityFeedService
+{
+    /// <summary>
+    /// İlgili olayı aktivite akışına yazar.
+    /// </summary>
+    Task PublishAsync(Guid issueId, string eventName, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Atanan kişiye bildirim gönderir.
+/// </summary>
+public interface INotificationService
+{
+    /// <summary>
+    /// Atanan kişiyi bilgilendirir.
+    /// </summary>
+    Task NotifyAssigneeAsync(Guid issueId, CancellationToken cancellationToken);
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+## 8. Gerçek Hayat Senaryosu
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+Bir ekip içi görev takip platformu düşün: kullanıcı “Görev Aç” butonuna basıyor. O tek tıklamanın arkasında başlık doğrulama, uygun kişiye atama, ekip akışına olay yazma ve ilgili kişiye bildirim gönderme adımları var.
 
-## 8. Ne Zaman Kullanılmamalıdır?
+Facade burada sahne yöneticisi gibi çalışır. API katmanı sadece `OpenIssueAsync` çağırır; perde arkasındaki sıralama, koordinasyon ve alt servislerin birlikte çalışması Facade içinde kalır. Böylece üst katman sade kalır, alt sistemler ise kendi uzmanlığında gelişmeye devam eder.
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+## 9. Test Edilebilirlik Notları
 
-## 9. Avantajlar
-
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
-
-## 10. Dikkat Edilecekler
-
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
-
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+- Facade’in bağımlılıklarını arayüzlerden aldığı için alt servisler kolayca mock’lanır.
+- Başarılı akışta hangi servisin kaç kez çağrıldığını net biçimde doğrulayabilirsin.
+- Hata senaryolarında (ör. doğrulama hatası) zincirin doğru noktada kesildiğini test etmek kolaylaşır.
+- Facade testleri, use-case davranışını uçtan uca değil, akış koordinasyonu seviyesinde güvence altına alır.
