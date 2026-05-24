@@ -1,19 +1,10 @@
 # Chain of Responsibility
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Behavioral Patterns |
-| Pattern | Chain of Responsibility |
-| Dosya Yolu | `docs/application/behavioral/chain-of-responsibility.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application ve Domain davranışları |
-
 ## 1. Kısa Tanım
 
 Chain of Responsibility, bir isteği handler zinciri boyunca işler.
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Bu desenin en güzel yanı şu: “Bu kararı kim verecek?” sorusunu tek bir sınıfa kilitlemek yerine, sorumluluğu akış içinde yaşayan küçük parçalara dağıtır. Her handler kendi uzmanlık alanında konuşur, kalan işi sıradakine paslar.
 
 ## 2. Çözdüğü Problem
 
@@ -28,11 +19,15 @@ Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar blokları
 - Kod tekrarını kontrollü biçimde azaltmak
 - Unit test yazılabilecek küçük bileşenler üretmek
 
-## 3. Kurumsal Talep Yönetimi Örneği
+## 3. Gerçek Hayat Senaryosu: Kampüs Etkinlik Salonu Rezervasyonu
 
-Talep onaya gönderilmeden önce zorunlu alan, yetki, durum ve iş kuralı kontrolleri sırayla çalışır.
+Bir üniversite kampüsünde öğrenci kulüpleri etkinlik salonu rezerve ediyor olsun. Rezervasyon onaya gitmeden önce şu kontroller sırayla çalışıyor:
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+- Zaman aralığı mantıklı mı?
+- Salon kapasitesi katılımcı sayısını karşılıyor mu?
+- Projektör talebi varsa salonun teknik ekipmanı uygun mu?
+
+Bu akış, kampüs yaşamındaki somut bir problemi sade ama güçlü biçimde modellediği için Chain of Responsibility’yi anlatmak için idealdir.
 
 ## 4. .NET İçinde Kullanım Yaklaşımı
 
@@ -47,19 +42,169 @@ Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
 - Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
 - Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
 
-## 5. Basit Akış
+## 5. Mermaid Diyagramı
 
-```text
-Request -> Required Fields Handler -> Permission Handler -> Status Handler -> Business Rule Handler
+```mermaid
+flowchart LR
+    A[ReservationRequest] --> B[TimeWindowHandler]
+    B --> C[CapacityHandler]
+    C --> D[EquipmentPolicyHandler]
+    D --> E[Onaylandı / Reddedildi]
 ```
 
-## 6. Örnek Kod / Taslak
+## 6. C# Örnek Kod (Derlenebilir)
 
 ```csharp
-public interface IRequestValidationHandler
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+/// <summary>
+/// Kampüs etkinlik salonu rezervasyon isteğini temsil eder.
+/// </summary>
+public sealed record ReservationRequest(
+    Guid StudentId,
+    string RoomId,
+    DateTime StartUtc,
+    DateTime EndUtc,
+    int ParticipantCount,
+    bool RequiresProjector);
+
+/// <summary>
+/// Zincir sonucunda dönen doğrulama sonucunu temsil eder.
+/// </summary>
+public sealed record ValidationResult(bool IsApproved, string? Reason)
 {
-    IRequestValidationHandler SetNext(IRequestValidationHandler next);
-    Task<Result> HandleAsync(SubmitRequestCommand command, CancellationToken cancellationToken);
+    /// <summary>
+    /// Başarılı sonucu üretir.
+    /// </summary>
+    public static ValidationResult Approved() => new(true, null);
+
+    /// <summary>
+    /// Başarısız sonucu üretir.
+    /// </summary>
+    /// <param name="reason">Reddetme nedeni.</param>
+    public static ValidationResult Rejected(string reason) => new(false, reason);
+}
+
+/// <summary>
+/// Rezervasyon doğrulama zincirindeki handler sözleşmesidir.
+/// </summary>
+public interface IReservationValidationHandler
+{
+    /// <summary>
+    /// Zincire bir sonraki handler'ı ekler.
+    /// </summary>
+    /// <param name="next">Bir sonraki handler.</param>
+    IReservationValidationHandler SetNext(IReservationValidationHandler next);
+
+    /// <summary>
+    /// İsteği işler veya sıradaki handler'a aktarır.
+    /// </summary>
+    /// <param name="request">Rezervasyon isteği.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    Task<ValidationResult> HandleAsync(ReservationRequest request, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Handler zincirinin temel davranışını sağlar.
+/// </summary>
+public abstract class ReservationValidationHandlerBase : IReservationValidationHandler
+{
+    private IReservationValidationHandler? _next;
+
+    /// <inheritdoc />
+    public IReservationValidationHandler SetNext(IReservationValidationHandler next)
+    {
+        _next = next;
+        return next;
+    }
+
+    /// <inheritdoc />
+    public async Task<ValidationResult> HandleAsync(ReservationRequest request, CancellationToken cancellationToken)
+    {
+        var currentResult = await ValidateAsync(request, cancellationToken);
+
+        if (!currentResult.IsApproved)
+        {
+            return currentResult;
+        }
+
+        return _next is null
+            ? ValidationResult.Approved()
+            : await _next.HandleAsync(request, cancellationToken);
+    }
+
+    /// <summary>
+    /// Handler'a özgü doğrulama adımını çalıştırır.
+    /// </summary>
+    protected abstract Task<ValidationResult> ValidateAsync(ReservationRequest request, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Zaman aralığı doğrulamasını yapar.
+/// </summary>
+public sealed class TimeWindowHandler : ReservationValidationHandlerBase
+{
+    /// <inheritdoc />
+    protected override Task<ValidationResult> ValidateAsync(ReservationRequest request, CancellationToken cancellationToken)
+    {
+        if (request.StartUtc >= request.EndUtc)
+        {
+            return Task.FromResult(ValidationResult.Rejected("Başlangıç zamanı bitişten önce olmalıdır."));
+        }
+
+        if (request.StartUtc < DateTime.UtcNow)
+        {
+            return Task.FromResult(ValidationResult.Rejected("Geçmiş bir zaman aralığına rezervasyon açılamaz."));
+        }
+
+        return Task.FromResult(ValidationResult.Approved());
+    }
+}
+
+/// <summary>
+/// Katılımcı sayısına göre salon kapasite kontrolü yapar.
+/// </summary>
+public sealed class CapacityHandler : ReservationValidationHandlerBase
+{
+    private readonly int _maxCapacity;
+
+    /// <summary>
+    /// CapacityHandler sınıfının yeni bir örneğini başlatır.
+    /// </summary>
+    /// <param name="maxCapacity">Salonun maksimum kapasitesi.</param>
+    public CapacityHandler(int maxCapacity) => _maxCapacity = maxCapacity;
+
+    /// <inheritdoc />
+    protected override Task<ValidationResult> ValidateAsync(ReservationRequest request, CancellationToken cancellationToken)
+    {
+        return request.ParticipantCount > _maxCapacity
+            ? Task.FromResult(ValidationResult.Rejected("Katılımcı sayısı salon kapasitesini aşıyor."))
+            : Task.FromResult(ValidationResult.Approved());
+    }
+}
+
+/// <summary>
+/// Teknik ekipman gereksinimlerini doğrular.
+/// </summary>
+public sealed class EquipmentPolicyHandler : ReservationValidationHandlerBase
+{
+    private readonly bool _projectorAvailable;
+
+    /// <summary>
+    /// EquipmentPolicyHandler sınıfının yeni bir örneğini başlatır.
+    /// </summary>
+    /// <param name="projectorAvailable">Salonda projektör olup olmadığı.</param>
+    public EquipmentPolicyHandler(bool projectorAvailable) => _projectorAvailable = projectorAvailable;
+
+    /// <inheritdoc />
+    protected override Task<ValidationResult> ValidateAsync(ReservationRequest request, CancellationToken cancellationToken)
+    {
+        return request.RequiresProjector && !_projectorAvailable
+            ? Task.FromResult(ValidationResult.Rejected("Projektör talebi karşılanamıyor."))
+            : Task.FromResult(ValidationResult.Approved());
+    }
 }
 ```
 
@@ -87,19 +232,14 @@ public interface IRequestValidationHandler
 - Clean Architecture yaklaşımını destekler.
 - Domain ve application sınırlarını korumaya yardımcı olur.
 
-## 10. Dikkat Edilecekler
+## 10. Riskler
 
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
+- Zincir gereğinden fazla uzarsa takip edilmesi zorlaşabilir.
+- Handler sırası yanlış kurgulanırsa beklenmeyen sonuçlar üretilebilir.
+- Her küçük kontrol için ayrı sınıf açmak, basit senaryolarda gereksiz karmaşıklık yaratabilir.
 
-## 11. Kontrol Listesi
+## 11. Test Edilebilirlik Notları
 
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+- Her handler tek bir sorumluluk taşıdığı için birim testleri yalın olur.
+- Başarısız bir handler’ın zinciri durdurduğunu ve doğru mesaj döndürdüğünü izole testlerle doğrulayabilirsiniz.
+- `SetNext` ile farklı zincir kombinasyonları kurup edge-case senaryolarını kolayca test edebilirsiniz.
