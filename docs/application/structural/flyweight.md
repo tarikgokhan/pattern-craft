@@ -1,106 +1,314 @@
 # Flyweight
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Structural Patterns |
-| Pattern | Flyweight |
-| Dosya Yolu | `docs/application/structural/flyweight.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Infrastructure, Application veya API sınırı |
+Flyweight, sahnede birbirine benzeyen yüzlerce hatta binlerce nesne varsa, onların ortak taraflarını tek bir yerde tutup belleği ferahlatan bir desendir. Her nesne kendi kimliğini korur; ama tekrar tekrar taşınmasına gerek olmayan veriler paylaşıma açılır.
 
-## 1. Kısa Tanım
+Bir başka deyişle: aynı ağacın gövde dokusunu, aynı ikonun SVG bilgisini ya da aynı etiket stilini her nesnenin sırtına yeniden yüklemek yerine, bunları ortak bir “hafif sıklet” nesnede toplarız. Nesnenin kendine özel konumu, sırası, zamanı veya durumu ise dışarıda kalır.
 
-Flyweight, çok sayıda benzer nesne için ortak veriyi paylaşarak bellek tasarrufu sağlar.
+## Problem Tanımı
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Bazı sistemlerde nesne sayısı hızla artar; fakat bu nesnelerin önemli bir bölümü aslında aynı iç veriyi taşır.
 
-## 2. Çözdüğü Problem
+Örneğin:
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+- bir kampüs haritasında binlerce ağaç işaretleniyorsa,
+- bir tasarım aracında aynı ikon farklı konumlarda tekrar tekrar çiziliyorsa,
+- bir etkinlik alanında benzer koltuk tipleri çok sayıda örnekte gösteriliyorsa,
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+her örnek için aynı sabit veriyi yeniden üretmek gereksiz bellek tüketimine yol açar.
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+İşte Flyweight burada devreye girer. Nesnenin:
 
-## 3. Kurumsal Talep Yönetimi Örneği
+- **paylaşılabilir, değişmeyen kısmını** içsel durum (intrinsic state),
+- **örneğe özel, dışarıdan gelen kısmını** dışsal durum (extrinsic state)
 
-Talep önceliği, durum kodları veya sabit referans değerleri çok sayıda nesne içinde tekrar oluşturulmadan paylaşılır.
+olarak ayırır.
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+Bu ayrım yapıldığında sistem hem daha hafif çalışır hem de tekrar eden veriyi daha kontrollü yönetir.
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+## Ne Zaman Kullanılır?
 
-`LookupValueCache`, `RequestStatusCatalog` veya immutable reference data koleksiyonlarında kullanılabilir.
+Flyweight özellikle şu durumlarda güçlü bir adaydır:
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+- Uygulama çok sayıda benzer nesne üretiyorsa
+- Bu nesnelerin önemli bir bölümü aynı sabit veriyi paylaşıyorsa
+- Bellek kullanımı görünür bir maliyet haline geldiyse
+- Nesne oluşturma sayısı yüksek olduğu için performans baskısı oluşuyorsa
+- Paylaşılan veriler immutable veya pratikte değişmez yapıdaysa
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+.NET tarafında bu desen; önbelleğe alınan görünüm tanımları, ortak referans verileri, ikon/meta veri katalogları, sabit stil tanımları ve rendering senaryolarında sıkça işe yarar.
 
-## 5. Basit Akış
+## Ne Zaman Kullanılmamalıdır?
 
-```text
-Many Objects -> Shared Immutable Lookup Data
+Her kalabalık nesne koleksiyonu Flyweight istemez.
+
+Şu durumlarda desen gereksiz karmaşa üretebilir:
+
+- Nesne sayısı düşükse
+- Paylaşılacak veri zaten çok küçükse
+- İçsel durum sık sık değişiyorsa
+- Dışsal durumun taşınması kodu olduğundan daha karmaşık hale getiriyorsa
+- Basit bir cache veya sözlük kullanımı problemi zaten çözüyor ise
+
+Flyweight’in en büyük tuzağı, belleği azaltmaya çalışırken zihinsel yükü artırmaktır. Ölçülebilir bir kazanım yoksa desenin kendisi maliyete dönüşebilir.
+
+## Gerçek Hayat Senaryosu
+
+Bir şehir parkı planlama uygulaması düşünelim. Tasarım ekibi ekran üzerinde on binlerce ağaç yerleştiriyor:
+
+- Meşe ağaçlarının yaprak rengi aynı
+- Çam ağaçlarının doku bilgisi aynı
+- Akçaağaçların görsel stili aynı
+
+Ama her ağacın:
+
+- haritadaki konumu,
+- yüksekliği,
+- rotasyonu,
+- seçili olup olmaması
+
+farklı.
+
+Eğer her ağaç nesnesi kendi tür bilgisini, renk bilgisini ve doku yolunu ayrı ayrı taşırsa, sistem kısa sürede şişmeye başlar. Flyweight yaklaşımında ise “ağaç stili” tek yerde tutulur; her ağaç yalnızca kendine özgü dışsal bilgileri taşır. Böylece harita büyüdükçe bellek tüketimi doğrusal ama daha makul bir çizgide kalır.
+
+## Yapısal Bakış
+
+```mermaid
+classDiagram
+    class TreeStyle {
+        +string Species
+        +string TexturePath
+        +string LeafColor
+        +Render(TreePlacement) string
+    }
+
+    class TreeStyleFactory {
+        -ConcurrentDictionary _styles
+        +GetOrCreate(string, string, string) TreeStyle
+    }
+
+    class TreePlacement {
+        +int X
+        +int Y
+        +int HeightInMeters
+    }
+
+    class Tree {
+        -TreeStyle _style
+        +TreePlacement Placement
+        +Draw() string
+    }
+
+    Tree --> TreeStyle : uses
+    TreeStyleFactory --> TreeStyle : creates/shares
 ```
 
-## 6. Örnek Kod / Taslak
+Bu diyagramdaki ana fikir nettir: `TreeStyle` paylaşılan veriyi taşır, `Tree` ise kendine özel konumu ve ölçüsünü tutar. Fabrika da aynı stili tekrar tekrar üretmek yerine paylaşımı organize eder.
+
+## C# Örnek Kodu
+
+Aşağıdaki örnek, .NET/C# odağında derlenebilir bir Flyweight uygulamasını gösterir:
 
 ```csharp
-public static class RequestStatusCatalog
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+
+namespace PatternCraft.Structural.Flyweight;
+
+/// <summary>
+/// Paylaşılan ve değişmeyen ağaç stilini temsil eder.
+/// </summary>
+public sealed class TreeStyle
 {
-    public static readonly RequestStatus Draft = new("DRAFT", "Draft");
-    public static readonly RequestStatus Submitted = new("SUBMITTED", "Submitted");
-    public static readonly RequestStatus Completed = new("COMPLETED", "Completed");
+    /// <summary>
+    /// <see cref="TreeStyle"/> sınıfının yeni bir örneğini başlatır.
+    /// </summary>
+    /// <param name="species">Ağaç türünü belirtir.</param>
+    /// <param name="texturePath">Ağaç için kullanılacak doku yolunu belirtir.</param>
+    /// <param name="leafColor">Yaprak rengini belirtir.</param>
+    public TreeStyle(string species, string texturePath, string leafColor)
+    {
+        Species = species;
+        TexturePath = texturePath;
+        LeafColor = leafColor;
+    }
+
+    /// <summary>
+    /// Ağaç türünü alır.
+    /// </summary>
+    public string Species { get; }
+
+    /// <summary>
+    /// Doku yolunu alır.
+    /// </summary>
+    public string TexturePath { get; }
+
+    /// <summary>
+    /// Yaprak rengini alır.
+    /// </summary>
+    public string LeafColor { get; }
+
+    /// <summary>
+    /// Paylaşılan stil ile dışsal konum bilgisini birleştirerek çizim sonucunu oluşturur.
+    /// </summary>
+    /// <param name="placement">Ağacın dışsal konum bilgisidir.</param>
+    /// <returns>Çizim sonucunu temsil eden metni döner.</returns>
+    public string Render(TreePlacement placement)
+    {
+        return $"{Species} ağacı ({placement.X}, {placement.Y}) noktasında, {placement.HeightInMeters} metre yükseklikle çizildi. Doku: {TexturePath}, Yaprak Rengi: {LeafColor}";
+    }
+}
+
+/// <summary>
+/// Ağaç için örneğe özel dışsal durumu temsil eder.
+/// </summary>
+public readonly record struct TreePlacement
+{
+    /// <summary>
+    /// <see cref="TreePlacement"/> yapısının yeni bir örneğini başlatır.
+    /// </summary>
+    /// <param name="x">X koordinatını belirtir.</param>
+    /// <param name="y">Y koordinatını belirtir.</param>
+    /// <param name="heightInMeters">Ağacın yüksekliğini belirtir.</param>
+    public TreePlacement(int x, int y, int heightInMeters)
+    {
+        X = x;
+        Y = y;
+        HeightInMeters = heightInMeters;
+    }
+
+    /// <summary>
+    /// X koordinatını alır.
+    /// </summary>
+    public int X { get; }
+
+    /// <summary>
+    /// Y koordinatını alır.
+    /// </summary>
+    public int Y { get; }
+
+    /// <summary>
+    /// Ağacın yüksekliğini metre cinsinden alır.
+    /// </summary>
+    public int HeightInMeters { get; }
+}
+
+/// <summary>
+/// Paylaşılan ağaç stillerini üreten ve yeniden kullanan fabrikayı temsil eder.
+/// </summary>
+public sealed class TreeStyleFactory
+{
+    private readonly ConcurrentDictionary<(string Species, string TexturePath, string LeafColor), TreeStyle> _styles = new();
+
+    /// <summary>
+    /// Verilen stil bilgileri için mevcut flyweight örneğini döner veya yenisini oluşturur.
+    /// </summary>
+    /// <param name="species">Ağaç türünü belirtir.</param>
+    /// <param name="texturePath">Doku yolunu belirtir.</param>
+    /// <param name="leafColor">Yaprak rengini belirtir.</param>
+    /// <returns>Paylaşılan <see cref="TreeStyle"/> örneğini döner.</returns>
+    public TreeStyle GetOrCreate(string species, string texturePath, string leafColor)
+    {
+        var key = (species, texturePath, leafColor);
+
+        return _styles.GetOrAdd(
+            key,
+            styleKey => new TreeStyle(styleKey.Species, styleKey.TexturePath, styleKey.LeafColor));
+    }
+}
+
+/// <summary>
+/// Haritadaki tek bir ağaç örneğini temsil eder.
+/// </summary>
+public sealed class Tree
+{
+    private readonly TreeStyle _style;
+
+    /// <summary>
+    /// <see cref="Tree"/> sınıfının yeni bir örneğini başlatır.
+    /// </summary>
+    /// <param name="style">Paylaşılan ağaç stilini belirtir.</param>
+    /// <param name="placement">Ağacın dışsal konum bilgisini belirtir.</param>
+    public Tree(TreeStyle style, TreePlacement placement)
+    {
+        _style = style;
+        Placement = placement;
+    }
+
+    /// <summary>
+    /// Ağacın haritadaki konum bilgisini alır.
+    /// </summary>
+    public TreePlacement Placement { get; }
+
+    /// <summary>
+    /// Ağacı çizim için hazırlar.
+    /// </summary>
+    /// <returns>Çizim sonucunu temsil eden metni döner.</returns>
+    public string Draw()
+    {
+        return _style.Render(Placement);
+    }
+}
+
+/// <summary>
+/// Flyweight deseninin kullanımını gösteren örnek akışı çalıştırır.
+/// </summary>
+public static class Demo
+{
+    /// <summary>
+    /// Uygulama giriş noktasını çalıştırır.
+    /// </summary>
+    public static void Main()
+    {
+        var factory = new TreeStyleFactory();
+
+        var oakStyle = factory.GetOrCreate("Meşe", "/textures/oak.png", "Yeşil");
+        var anotherOakStyle = factory.GetOrCreate("Meşe", "/textures/oak.png", "Yeşil");
+        var sameStyleIsShared = ReferenceEquals(oakStyle, anotherOakStyle);
+
+        var trees = new List<Tree>
+        {
+            new(oakStyle, new TreePlacement(10, 12, 6)),
+            new(anotherOakStyle, new TreePlacement(18, 25, 7)),
+            new(factory.GetOrCreate("Çam", "/textures/pine.png", "KoyuYeşil"), new TreePlacement(40, 8, 9))
+        };
+
+        Console.WriteLine($"Aynı stil paylaşılıyor mu? {(sameStyleIsShared ? "Evet" : "Hayır")}");
+
+        foreach (var tree in trees)
+        {
+            Console.WriteLine(tree.Draw());
+        }
+    }
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+Bu örnekte `oakStyle` ile `anotherOakStyle` aynı nesneyi paylaşır. Yani ekranda iki ayrı meşe ağacı görünse de ortak stil bellekte tek kez tutulur.
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+## Avantajlar
 
-## 8. Ne Zaman Kullanılmamalıdır?
+- Büyük koleksiyonlarda bellek kullanımını azaltır
+- Tekrarlanan sabit veriyi merkezi hale getirir
+- Nesne oluşturma maliyetini düşürebilir
+- Cache ve paylaşım mantığını görünür kılar
+- Aynı veriyle çalışan çok sayıda nesnede tutarlılığı artırır
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+## Riskler ve Sınırlamalar
 
-## 9. Avantajlar
+- İçsel ve dışsal durumu ayırmak ilk bakışta kodu daha karmaşık gösterebilir
+- Yanlış ayrım yapılırsa paylaşılan veri beklenmedik şekilde değiştirilebilir
+- Thread-safety düşünülmeden kurulan factory yapıları eşzamanlı erişimde sorun çıkarabilir
+- Az sayıda nesne olan senaryolarda kazanç, ek soyutlamaya değmeyebilir
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
+Flyweight’in güzel tarafı hafif olmasıdır; zor tarafı ise “neyi hafifleteceğini” doğru seçmektir.
 
-## 10. Dikkat Edilecekler
+## Test Edilebilirlik Notları
 
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
+Flyweight doğru kurulduğunda test etmek oldukça rahattır. Özellikle şu doğrulamalar net biçimde yazılabilir:
 
-## 11. Kontrol Listesi
+- Aynı anahtarla istenen iki stilin aynı referansı döndürdüğü
+- Farklı anahtarlarda yeni flyweight üretildiği
+- Dışsal durum değiştiğinde çizim sonucunun değiştiği
+- Paylaşılan stil verisinin nesneler arasında tutarlı kaldığı
 
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+Örneğin birim testte `ReferenceEquals(style1, style2)` kontrolü ile fabrikanın gerçekten paylaşım yapıp yapmadığı kolayca doğrulanabilir. Bu da deseni yalnızca teorik değil, ölçülebilir hale getirir.
