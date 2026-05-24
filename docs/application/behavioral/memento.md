@@ -1,106 +1,266 @@
 # Memento
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Behavioral Patterns |
-| Pattern | Memento |
-| Dosya Yolu | `docs/application/behavioral/memento.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application ve Domain davranışları |
+## Kısa Tanım
 
-## 1. Kısa Tanım
+Memento, bir nesnenin iç durumunu dışarıya açmadan saklamayı ve gerektiğinde o ana geri dönmeyi sağlar. Özellikle “bir adım geri al”, “taslağı eski haline döndür”, “yanlış güncellemeyi sessizce telafi et” gibi anlarda sahneye çıkar.
 
-Memento, nesnenin önceki durumunu saklayıp geri yüklemeyi sağlar.
+Bu desenin güzelliği şuradadır: geçmişi korur, ama bunu nesnenin mahremiyetini bozarak yapmaz. Yani nesnenin iç alanlarını herkesin eline tutuşturmaz; yalnızca güvenli bir anı bırakır.
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+## Hangi Problemi Çözer?
 
-## 2. Çözdüğü Problem
+Bazı nesneler zaman içinde çok sık değişir. Bir editör taslağı, bir planlama ekranı, bir iş akışı tanımı ya da kullanıcı tarafından adım adım düzenlenen herhangi bir veri modeli buna örnek verilebilir.
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+Sorun genelde şöyle başlar:
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+- Kullanıcı bir değişiklik yapar.
+- Bir sonraki adımda fikrini değiştirir.
+- Sistemden önceki hale dönmesini ister.
+- Ama mevcut nesnenin tüm iç durumunu dışarı açmak da istemezsin.
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+İşte Memento tam burada devreye girer. Nesnenin kendi içinde “geri dönülebilir bir an” üretmesini sağlar. Böylece kapsülleme korunur, geri alma mekanizması da temiz kalır.
 
-## 3. Kurumsal Talep Yönetimi Örneği
+## Gerçek Hayattan Bir Sahne
 
-Talep üzerinde revizyon öncesi durum saklanır ve gerekirse önceki hale geri dönülür.
+Bir kültür merkezi için hazırlanan **etkinlik akışı editörünü** düşün. Editör, program başlığını değiştiriyor, salonu güncelliyor, açıklama metnini yeniden yazıyor ve bir yandan da yayına hazır olup olmadığını işaretliyor.
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+Her değişiklik doğru gitmeyebilir. Bazen son düzenleme fazla agresif olur, bazen ekip “bir önceki versiyon daha iyiydi” der. Böyle bir ekranda tüm alanları tek tek geri yazmak yerine, taslağın belirli anlarını saklayıp tek hareketle geri dönmek çok daha pratiktir.
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+Memento, tam olarak bu deneyimi pürüzsüz hale getirir.
 
-`RequestSnapshot`, `WorkflowSnapshot` veya undo/redo senaryolarında kullanılabilir.
+## Yapı
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+Desende genellikle üç rol bulunur:
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+- **Originator**: Durumu taşıyan ana nesnedir.
+- **Memento**: O anki durumun saklandığı anıdır.
+- **Caretaker**: Bu anıları tutar; ama içeriğini kurcalamaz.
 
-## 5. Basit Akış
+```mermaid
+classDiagram
+    class EventProgramEditor {
+        -string _title
+        -string _hall
+        -string _description
+        -bool _isPublished
+        +UpdateDetails(title, hall, description)
+        +MarkAsPublished()
+        +CreateMemento()
+        +Restore(memento)
+    }
 
-```text
-Current State -> Snapshot -> Restore When Needed
+    class EventProgramMemento {
+        +Title
+        +Hall
+        +Description
+        +IsPublished
+    }
+
+    class EventProgramHistory {
+        -Stack~EventProgramMemento~ _history
+        +Push(memento)
+        +TryPop() EventProgramMemento
+    }
+
+    EventProgramEditor --> EventProgramMemento : creates/restores
+    EventProgramHistory --> EventProgramMemento : stores
 ```
 
-## 6. Örnek Kod / Taslak
+## C# Örneği
+
+Aşağıdaki örnek, etkinlik programı taslağını düzenleyen bir editör nesnesinin önceki durumlarını saklayıp geri yüklemesini gösterir. Kod, tek dosyada derlenebilir olacak şekilde hazırlanmıştır.
 
 ```csharp
-public sealed record RequestSnapshot(
-    Guid RequestId,
+using System;
+using System.Collections.Generic;
+
+namespace PatternCraft.Behavioral.Memento;
+
+/// <summary>
+/// Etkinlik programı düzenleme ekranındaki mevcut taslağı temsil eder.
+/// </summary>
+public sealed class EventProgramEditor
+{
+    private string _title;
+    private string _hall;
+    private string _description;
+    private bool _isPublished;
+
+    /// <summary>
+    /// Yeni bir program editörü oluşturur.
+    /// </summary>
+    /// <param name="title">Başlangıç başlığı.</param>
+    /// <param name="hall">Başlangıç salon bilgisi.</param>
+    /// <param name="description">Başlangıç açıklaması.</param>
+    public EventProgramEditor(string title, string hall, string description)
+    {
+        _title = title;
+        _hall = hall;
+        _description = description;
+    }
+
+    /// <summary>
+    /// Program başlığı, salonu ve açıklamasını günceller.
+    /// </summary>
+    /// <param name="title">Yeni başlık.</param>
+    /// <param name="hall">Yeni salon bilgisi.</param>
+    /// <param name="description">Yeni açıklama.</param>
+    public void UpdateDetails(string title, string hall, string description)
+    {
+        _title = title;
+        _hall = hall;
+        _description = description;
+    }
+
+    /// <summary>
+    /// Programı yayına hazır olarak işaretler.
+    /// </summary>
+    public void MarkAsPublished()
+    {
+        _isPublished = true;
+    }
+
+    /// <summary>
+    /// Mevcut durumun güvenli bir anlık görüntüsünü üretir.
+    /// </summary>
+    /// <returns>Geri yükleme için kullanılacak memento nesnesi.</returns>
+    public EventProgramMemento CreateMemento()
+    {
+        return new EventProgramMemento(_title, _hall, _description, _isPublished);
+    }
+
+    /// <summary>
+    /// Daha önce kaydedilmiş bir durumu geri yükler.
+    /// </summary>
+    /// <param name="memento">Geri yüklenecek durum.</param>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="memento"/> değeri <see langword="null"/> ise fırlatılır.
+    /// </exception>
+    public void Restore(EventProgramMemento memento)
+    {
+        ArgumentNullException.ThrowIfNull(memento);
+
+        _title = memento.Title;
+        _hall = memento.Hall;
+        _description = memento.Description;
+        _isPublished = memento.IsPublished;
+    }
+
+    /// <summary>
+    /// Mevcut durumu okunabilir bir metne dönüştürür.
+    /// </summary>
+    /// <returns>Programın özet görünümü.</returns>
+    public override string ToString()
+    {
+        return $"Başlık: {_title} | Salon: {_hall} | Yayında: {_isPublished} | Açıklama: {_description}";
+    }
+}
+
+/// <summary>
+/// Etkinlik programının geri yüklenebilir durumunu taşır.
+/// </summary>
+/// <param name="Title">Program başlığı.</param>
+/// <param name="Hall">Salon bilgisi.</param>
+/// <param name="Description">Program açıklaması.</param>
+/// <param name="IsPublished">Yayın durumu.</param>
+public sealed record EventProgramMemento(
     string Title,
+    string Hall,
     string Description,
-    RequestStatus Status,
-    DateTime CreatedAtUtc);
+    bool IsPublished);
+
+/// <summary>
+/// Oluşturulan memento nesnelerini saklayan geçmiş yöneticisidir.
+/// </summary>
+public sealed class EventProgramHistory
+{
+    private readonly Stack<EventProgramMemento> _history = new();
+
+    /// <summary>
+    /// Geçmişe yeni bir anlık görüntü ekler.
+    /// </summary>
+    /// <param name="memento">Saklanacak durum.</param>
+    public void Push(EventProgramMemento memento)
+    {
+        ArgumentNullException.ThrowIfNull(memento);
+        _history.Push(memento);
+    }
+
+    /// <summary>
+    /// Son kaydı çıkarır.
+    /// </summary>
+    /// <returns>Varsa son memento; yoksa <see langword="null"/>.</returns>
+    public EventProgramMemento? TryPop()
+    {
+        return _history.Count > 0 ? _history.Pop() : null;
+    }
+}
+
+internal static class Program
+{
+    private static void Main()
+    {
+        var editor = new EventProgramEditor(
+            title: "Yaz Akşamı Söyleşileri",
+            hall: "Açık Hava Sahnesi",
+            description: "Şehrin farklı yazarlarını buluşturan akşam programı.");
+
+        var history = new EventProgramHistory();
+        history.Push(editor.CreateMemento());
+
+        editor.UpdateDetails(
+            title: "Yaz Akşamı Söyleşileri - Güncellenmiş Program",
+            hall: "Taş Salon",
+            description: "Yağmur ihtimali nedeniyle program kapalı alana taşındı.");
+        editor.MarkAsPublished();
+
+        Console.WriteLine("Güncel Durum:");
+        Console.WriteLine(editor);
+
+        var previousState = history.TryPop();
+        if (previousState is not null)
+        {
+            editor.Restore(previousState);
+        }
+
+        Console.WriteLine("Geri Yüklenen Durum:");
+        Console.WriteLine(editor);
+    }
+}
 ```
 
-## 7. Ne Zaman Kullanılır?
+## Ne Zaman Kullanılır?
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+- Kullanıcıya **undo/redo** deneyimi sunmak istediğinde
+- Bir nesnenin önceki halini audit veya taslak yönetimi amacıyla kısa süreli saklaman gerektiğinde
+- Karmaşık bir nesnenin alanlarını dışarı açmadan durum geri yükleme yapmak istediğinde
+- İş akışındaki geçici değişiklikleri güvenli şekilde geri alman gerektiğinde
 
-## 8. Ne Zaman Kullanılmamalıdır?
+## Avantajlar
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Kapsüllemeyi bozmadan durum saklamaya izin verir.
+- Geri alma senaryolarını okunabilir ve düzenli hale getirir.
+- Originator ile geçmiş yönetimini ayırdığı için kodun niyeti daha rahat anlaşılır.
+- Testlerde “şu değişiklikten sonra eski hale döndü mü?” sorusunu net biçimde doğrulamayı kolaylaştırır.
 
-## 9. Avantajlar
+## Riskler ve Sınırlar
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
+- Çok büyük nesnelerde sık snapshot almak bellek maliyeti oluşturabilir.
+- Geçmiş uzun süre tutulursa yönetim yükü artar.
+- Memento içeriği fazla büyürse desenin sadeliği kaybolabilir.
+- Her problem için gerekmez; bazen küçük bir versiyon alanı ya da basit bir geri alma kuralı yeterli olur.
 
-## 10. Dikkat Edilecekler
+## Test Edilebilirlik Notları
 
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
+Memento, test yazarken oldukça sevilen desenlerden biridir; çünkü davranışı ölçmek kolaydır. Tipik birim testlerinde şu akış rahatça doğrulanabilir:
 
-## 11. Kontrol Listesi
+1. Originator belirli bir başlangıç durumunda oluşturulur.
+2. Memento alınır.
+3. Nesne değiştirilir.
+4. Restore çağrılır.
+5. Nesnenin yeniden ilk beklenen duruma döndüğü doğrulanır.
 
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+Özellikle .NET tarafında bu desen, xUnit veya NUnit ile yazılan testlerde oldukça yalın senaryolar üretir. Testin asıl odağı alanların tek tek nasıl değiştiği değil, “geri yükleme sonrası sistem doğru hikâyeye döndü mü?” sorusu olur.
+
+## Kısa Özet
+
+Memento, geçmişi saklamanın zarif yoludur. Nesne kendi sırrını korur, dış dünya ise yalnızca doğru anda o sırrı geri çağırır. Eğer uygulamanda “keşke bir önceki hale dönebilsek” cümlesi sık duyuluyorsa, Memento masaya davet edilmesi gereken desenlerden biridir.
