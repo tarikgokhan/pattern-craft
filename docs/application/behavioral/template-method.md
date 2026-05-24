@@ -1,113 +1,212 @@
 # Template Method
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Behavioral Patterns |
-| Pattern | Template Method |
-| Dosya Yolu | `docs/application/behavioral/template-method.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application ve Domain davranışları |
+Bazı akışlar vardır; omurgası neredeyse hiç değişmez, ama o omurganın içindeki birkaç adım ürüne, kanala ya da senaryoya göre başka bir ritimde çalışır. Template Method tam burada devreye girer: iskeleti korur, yorumu ise alt sınıflara bırakır.
 
 ## 1. Kısa Tanım
 
-Template Method, genel algoritma akışını sabit tutup bazı adımları özelleştirir.
+Template Method, algoritmanın ana akışını bir üst sınıfta tanımlar ve değişebilen adımları alt sınıfların özelleştirmesine açar.
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+.NET tarafında bu desen özellikle “aynı sırayla çalışan ama bazı duraklarda farklı davranan” süreçlerde parıldar. Böylece akış okunabilir kalır, tekrar eden kod azalır ve yeni varyasyon eklemek için mevcut akışı dağıtmak gerekmez.
 
 ## 2. Çözdüğü Problem
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+Bir uygulamada şu manzarayla sık karşılaşılır:
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+- Her işlem aynı doğrulama ve hazırlık adımlarıyla başlar.
+- Asıl işin yapıldığı bölüm senaryoya göre değişir.
+- İşlem sonunda loglama, bildirim veya sonuç üretimi yine ortak kalır.
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+Bu yapı if-else bloklarıyla büyüdüğünde algoritmanın niyeti bulanıklaşır. Template Method, “hangi adımlar sabit, hangileri değişken?” sorusuna temiz bir cevap verir.
 
-## 3. Kurumsal Talep Yönetimi Örneği
+Özellikle C# projelerinde şu ihtiyaçlar için uygundur:
 
-Talep işleme akışında doğrula, hazırla, çalıştır, sonucu kaydet gibi adımlar sabit; bazı adımlar özelleştirilebilir.
+- Application service veya handler seviyesinde tekrar eden akışları toplamak
+- Domain davranışını teknik detaylardan ayırmak
+- Yeni varyasyon eklerken mevcut akışın sırasını korumak
+- Ortak kuralları tek yerde tutup test kapsamını sadeleştirmek
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+## 3. Ne Zaman Kullanılır?
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+- Birden fazla sınıf aynı işlem sırasını izliyor, sadece bazı adımları değiştiriyorsa
+- Sürecin sırası kritikse ve geliştiricilerin bu sırayı yanlışlıkla bozmasını istemiyorsanız
+- Ortak davranışları merkezi tutup özel davranışları genişletilebilir bırakmak istiyorsanız
+- Kod tekrarını azaltırken akışın okunabilirliğini korumak istiyorsanız
 
-Base class içinde genel akış korunur, alt sınıflar belirli adımları override eder.
+## 4. Gerçek Hayat Senaryosu
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+Bir dijital içerik platformu düşünün. Makale, video ve podcast yayına alınırken aynı genel yolculuktan geçer:
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+1. İçerik doğrulanır.
+2. Yayın için hazırlanır.
+3. Kanalına uygun biçimde yayınlanır.
+4. Ekip üyelerine bildirim geçilir.
 
-## 5. Basit Akış
+Ama makalenin hazırlık adımı SEO başlığı üretmek olabilir, videonun hazırlık adımı ise kapak görseli ve çözünürlük kontrolü yapmak olabilir. İşte burada akışın ana omurgası sabit kalırken her içerik tipi kendi karakterini korur.
 
-```text
-Template Algorithm -> Hook Methods -> Specialized Process
-```
+## 5. İş Modeli Örneği
 
-## 6. Örnek Kod / Taslak
+Atölye, eğitim ve yaratıcı içerik üreten bir platformda “yayınlama” iş akışı sık tekrar eder. Ürün ister yazı dizisi olsun ister video serisi, ekip aynı kalite kapılarından geçmek ister: içerik boş mu, metadata hazır mı, yayın kanalı uygun mu, ekip bilgilendirildi mi?
 
-```csharp
-public abstract class RequestProcessTemplate
-{
-    public async Task<Result> ExecuteAsync(Guid requestId, CancellationToken cancellationToken)
-    {
-        await ValidateAsync(requestId, cancellationToken);
-        await PrepareAsync(requestId, cancellationToken);
-        return await CompleteAsync(requestId, cancellationToken);
+Template Method bu iş modelinde iki nedenle değerlidir:
+
+- Editoryal standartları merkezi biçimde korur.
+- Yeni içerik türü eklendiğinde tüm akışı kopyalamadan yalnızca değişen adımları yazmayı sağlar.
+
+## 6. UML / Mermaid Diyagramı
+
+```mermaid
+classDiagram
+    class ContentPublishingTemplate {
+        +PublishAsync(draft, cancellationToken) PublishResult
+        #ValidateAsync(draft, cancellationToken) Task
+        #PrepareAsync(draft, cancellationToken) Task
+        #PublishCoreAsync(draft, cancellationToken) Task
+        #NotifyAsync(draft, cancellationToken) Task
     }
 
-    protected abstract Task ValidateAsync(Guid requestId, CancellationToken cancellationToken);
-    protected abstract Task PrepareAsync(Guid requestId, CancellationToken cancellationToken);
-    protected abstract Task<Result> CompleteAsync(Guid requestId, CancellationToken cancellationToken);
+    class ArticlePublishingWorkflow
+    class VideoPublishingWorkflow
+
+    ContentPublishingTemplate <|-- ArticlePublishingWorkflow
+    ContentPublishingTemplate <|-- VideoPublishingWorkflow
+```
+
+## 7. C# Örnek Kod
+
+```csharp
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PatternCraft.TemplateMethod;
+
+/// <summary>
+/// Yayınlanacak içerik taslağını temsil eder.
+/// </summary>
+/// <param name="Title">İçerik başlığını belirtir.</param>
+/// <param name="Body">İçerik gövdesini belirtir.</param>
+public sealed record ContentDraft(string Title, string Body);
+
+/// <summary>
+/// Yayın sonucunun özetini temsil eder.
+/// </summary>
+/// <param name="Title">Yayınlanan içeriğin başlığını belirtir.</param>
+/// <param name="PublishedAt">Yayın zamanını belirtir.</param>
+public sealed record PublishResult(string Title, DateTimeOffset PublishedAt);
+
+/// <summary>
+/// İçerik yayınlama akışının değişmeyen iskeletini tanımlar.
+/// </summary>
+public abstract class ContentPublishingTemplate
+{
+    /// <summary>
+    /// İçeriği sabit işlem sırasını izleyerek yayına alır.
+    /// </summary>
+    /// <param name="draft">Yayınlanacak içerik taslağını belirtir.</param>
+    /// <param name="cancellationToken">İşlemi iptal etmek için kullanılan belirteci belirtir.</param>
+    /// <returns>Yayın sonucunu döner.</returns>
+    public async Task<PublishResult> PublishAsync(ContentDraft draft, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+
+        await ValidateAsync(draft, cancellationToken);
+        await PrepareAsync(draft, cancellationToken);
+        await PublishCoreAsync(draft, cancellationToken);
+        await NotifyAsync(draft, cancellationToken);
+
+        return new PublishResult(draft.Title, DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>
+    /// İçeriğin yayın için uygun olup olmadığını doğrular.
+    /// </summary>
+    /// <param name="draft">Doğrulanacak içerik taslağını belirtir.</param>
+    /// <param name="cancellationToken">İşlemi iptal etmek için kullanılan belirteci belirtir.</param>
+    /// <returns>Asenkron işlemi temsil eden görevi döner.</returns>
+    protected abstract Task ValidateAsync(ContentDraft draft, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// İçeriği yayın öncesinde hazırlar.
+    /// </summary>
+    /// <param name="draft">Hazırlanacak içerik taslağını belirtir.</param>
+    /// <param name="cancellationToken">İşlemi iptal etmek için kullanılan belirteci belirtir.</param>
+    /// <returns>Asenkron işlemi temsil eden görevi döner.</returns>
+    protected virtual Task PrepareAsync(ContentDraft draft, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>
+    /// İçeriği hedef kanalda yayınlar.
+    /// </summary>
+    /// <param name="draft">Yayınlanacak içerik taslağını belirtir.</param>
+    /// <param name="cancellationToken">İşlemi iptal etmek için kullanılan belirteci belirtir.</param>
+    /// <returns>Asenkron işlemi temsil eden görevi döner.</returns>
+    protected abstract Task PublishCoreAsync(ContentDraft draft, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Yayın sonrasında ilgili ekiplere bildirim gönderir.
+    /// </summary>
+    /// <param name="draft">Bildirimi gönderilecek içerik taslağını belirtir.</param>
+    /// <param name="cancellationToken">İşlemi iptal etmek için kullanılan belirteci belirtir.</param>
+    /// <returns>Asenkron işlemi temsil eden görevi döner.</returns>
+    protected virtual Task NotifyAsync(ContentDraft draft, CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+/// <summary>
+/// Makale yayınlama akışını özelleştirir.
+/// </summary>
+public sealed class ArticlePublishingWorkflow : ContentPublishingTemplate
+{
+    /// <inheritdoc />
+    protected override Task ValidateAsync(ContentDraft draft, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(draft.Title))
+        {
+            throw new InvalidOperationException("Makale başlığı boş olamaz.");
+        }
+
+        if (string.IsNullOrWhiteSpace(draft.Body))
+        {
+            throw new InvalidOperationException("Makale içeriği boş olamaz.");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    protected override Task PrepareAsync(ContentDraft draft, CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    protected override Task PublishCoreAsync(ContentDraft draft, CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+Bu örnekte `PublishAsync` metodu ritmi hiç bozmuyor. Alt sınıf ise yalnızca gerçekten değişmesi gereken yerlere dokunuyor. Desenin en güzel yanı da bu: ana melodi sabit, düzenleme serbest.
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+## 8. Avantajlar
 
-## 8. Ne Zaman Kullanılmamalıdır?
+- Algoritmanın sırasını merkezi biçimde korur.
+- Tekrar eden akış kodunu azaltır.
+- Yeni varyasyonların eklenmesini kolaylaştırır.
+- Ortak adımları bir üst sınıfta topladığı için bakım maliyetini düşürür.
+- Testlerde hem üst akışı hem de özelleşen adımları ayrı ayrı doğrulamayı kolaylaştırır.
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+## 9. Riskler
 
-## 9. Avantajlar
+- Yanlış kullanıldığında gereğinden fazla kalıtım üretir.
+- Değişken adım sayısı arttıkça üst sınıf fazla şey bilen bir yapıya dönüşebilir.
+- Sadece küçük bir tekrar için uygulanırsa kodu olduğundan daha ağır gösterebilir.
+- Alt sınıfların davranışı iyi isimlendirilmezse akışın niyeti yine bulanıklaşabilir.
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
+## 10. Test Edilebilirlik Notları
 
-## 10. Dikkat Edilecekler
+Template Method testlerinde iki seviyeli düşünmek faydalıdır:
 
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
+- Üst sınıfın akış sırasını koruduğunu doğrulayan testler
+- Alt sınıfın kendi özelleştirilmiş adımını doğru uyguladığını doğrulayan testler
 
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+Örneğin `PublishAsync` çağrısında doğrulama başarısız olduğunda yayın adımına geçilmediğini, başarılı durumda ise beklenen sıranın izlendiğini rahatlıkla test edebilirsiniz. Gerekirse hook metotları izleyen test doubles veya spy sınıfları kullanılarak akış görünür hale getirilebilir.
