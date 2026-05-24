@@ -1,107 +1,248 @@
 # Specification Pattern
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | .NET Application Patterns |
-| Pattern | Specification Pattern |
-| Dosya Yolu | `docs/application/dotnet-application/specification-pattern.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | ASP.NET Core ve Clean Architecture katmanları |
+Specification Pattern, iş kurallarını küçük, okunabilir ve birleştirilebilir parçalara ayırır. Böylece "bu kayıt kabul edilir mi?", "bu içerik yayınlanabilir mi?" gibi kararlar; servislerin içinde dağılmak yerine tek bir dilde konuşmaya başlar.
 
-## 1. Kısa Tanım
+**Ana Kategori:** Application Design Patterns  
+**Alt Kategori:** Behavioral Patterns  
+**Pattern:** Specification Pattern  
+**Dosya Yolu:** `docs/application/dotnet-application/specification-pattern.md`  
+**Odak:** Tek uygulama / tek mikroservis içi kod mimarisi  
+**Önerilen Katman:** Domain ve Application katmanları
 
-Specification Pattern, i̇ş kurallarını tekrar kullanılabilir koşullar olarak tanımlar.
+## 1. Problem Tanımı
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+İş kuralları büyüdükçe aynı koşullar farklı sınıflarda tekrar eder: bir yerde `if`, başka yerde benzer ama biraz farklı bir `if` daha. Bir süre sonra ekip şu soruyla karşılaşır: “Gerçek kural hangisi?”
 
-## 2. Çözdüğü Problem
+Specification, bu karmaşayı tek bir modele toplar:
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+- Kuralı nesne olarak temsil eder.
+- Kuralları `And`, `Or`, `Not` gibi operatörlerle birleştirir.
+- Kuralları bağımsız test etmeyi kolaylaştırır.
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+## 2. Ne Zaman Kullanılır?
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+- Aynı karar kuralı birden fazla use-case içinde tekrar ediyorsa
+- Yeni kural eklenmesi bekleniyor ve mevcut akış bozulmadan genişlemek isteniyorsa
+- Domain kurallarını controller/handler içinden çekip daha anlamlı bir yapıya taşımak gerekiyorsa
+- Unit testlerde yalnızca kural davranışını doğrulamak isteniyorsa
 
-## 3. Kurumsal Talep Yönetimi Örneği
+## 3. Gerçek Hayat Senaryosu: Atölye Kayıt Platformu
 
-Talebin onaya gönderilebilir olup olmadığı veya belirli rapor kriterlerini karşılayıp karşılamadığı reusable koşullarla tanımlanır.
+Bir etkinlik platformunda kullanıcılar atölyelere kayıt oluyor. “Kayıt kabul edilir mi?” sorusu tek bir koşula bağlı değil:
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+- Atölye kontenjanı dolu mu?
+- Kullanıcı yaş koşulunu sağlıyor mu?
+- Başvuru son tarihi geçti mi?
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+Bu kuralları ayrı specification sınıflarıyla modellediğinde, kayıt servisi sadece hangi kuralların bir araya geldiğini anlatır. Kural detayları kendi sınıfında yaşar.
 
-`ISpecification<T>` ve EF Core expression tabanlı query yapılarıyla kullanılabilir.
+## 4. UML / Mermaid Diyagramı
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+```mermaid
+classDiagram
+    class ISpecification~T~ {
+      +IsSatisfiedBy(candidate T) bool
+      +And(other ISpecification~T~) ISpecification~T~
+      +Or(other ISpecification~T~) ISpecification~T~
+      +Not() ISpecification~T~
+    }
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+    class WorkshopHasSeatSpecification
+    class ApplicantMeetsAgeRequirementSpecification
+    class RegistrationDeadlineNotPassedSpecification
+    class AndSpecification~T~
+    class WorkshopRegistration
 
-## 5. Basit Akış
+    ISpecification <|.. WorkshopHasSeatSpecification
+    ISpecification <|.. ApplicantMeetsAgeRequirementSpecification
+    ISpecification <|.. RegistrationDeadlineNotPassedSpecification
+    ISpecification <|.. AndSpecification
 
-```text
-Business Rule -> Specification -> Reusable Predicate
+    AndSpecification --> ISpecification : left
+    AndSpecification --> ISpecification : right
+
+    WorkshopHasSeatSpecification --> WorkshopRegistration
+    ApplicantMeetsAgeRequirementSpecification --> WorkshopRegistration
+    RegistrationDeadlineNotPassedSpecification --> WorkshopRegistration
 ```
 
-## 6. Örnek Kod / Taslak
+## 5. C# Örnek Kod
 
 ```csharp
-public sealed class RequestCanBeSubmittedSpecification
+using System;
+
+namespace PatternCraft.SpecificationSample;
+
+/// <summary>
+/// Bir domain nesnesi için doğrulanabilir kural tanımını temsil eder.
+/// </summary>
+/// <typeparam name="T">Kuralın değerlendirileceği model tipi.</typeparam>
+public interface ISpecification<T>
 {
-    public bool IsSatisfiedBy(Request request)
+    /// <summary>
+    /// Aday nesnenin kuralı sağlayıp sağlamadığını döner.
+    /// </summary>
+    /// <param name="candidate">Değerlendirilecek aday nesne.</param>
+    /// <returns>Kural sağlanıyorsa <see langword="true"/>, aksi halde <see langword="false"/>.</returns>
+    bool IsSatisfiedBy(T candidate);
+
+    /// <summary>
+    /// İki specification'ı VE (AND) operatörü ile birleştirir.
+    /// Bu varsayılan arayüz implementasyonudur; ihtiyaç halinde somut sınıflar farklı birleştirme davranışı uygulayabilir.
+    /// </summary>
+    /// <param name="other">Birleştirilecek diğer specification.</param>
+    /// <returns>Her iki kuralı da doğrulayan bileşik specification.</returns>
+    ISpecification<T> And(ISpecification<T> other) => new AndSpecification<T>(this, other);
+
+    /// <summary>
+    /// İki specification'ı VEYA (OR) operatörü ile birleştirir.
+    /// </summary>
+    /// <param name="other">Birleştirilecek diğer specification.</param>
+    /// <returns>Kurallardan en az birini doğrulayan bileşik specification.</returns>
+    ISpecification<T> Or(ISpecification<T> other) => new OrSpecification<T>(this, other);
+
+    /// <summary>
+    /// Specification sonucunu tersine çevirir.
+    /// </summary>
+    /// <returns>Mevcut kuralın NOT hali.</returns>
+    ISpecification<T> Not() => new NotSpecification<T>(this);
+}
+
+/// <summary>
+/// İki specification'ı VE (AND) operatörü ile birleştirir.
+/// Bu sınıf çoğunlukla doğrudan oluşturulmaz; <see cref="ISpecification{T}.And(ISpecification{T})"/> çağrısı ile üretilir.
+/// </summary>
+/// <typeparam name="T">Kuralın değerlendirileceği model tipi.</typeparam>
+public sealed class AndSpecification<T>(ISpecification<T> left, ISpecification<T> right) : ISpecification<T>
+{
+    /// <summary>
+    /// Aday nesnenin her iki kuralı da sağlayıp sağlamadığını döner.
+    /// </summary>
+    /// <param name="candidate">Değerlendirilecek aday nesne.</param>
+    /// <returns>Her iki kural sağlanıyorsa <see langword="true"/>.</returns>
+    public bool IsSatisfiedBy(T candidate) => left.IsSatisfiedBy(candidate) && right.IsSatisfiedBy(candidate);
+}
+
+/// <summary>
+/// İki specification'ı VEYA (OR) operatörü ile birleştirir.
+/// </summary>
+/// <typeparam name="T">Kuralın değerlendirileceği model tipi.</typeparam>
+public sealed class OrSpecification<T>(ISpecification<T> left, ISpecification<T> right) : ISpecification<T>
+{
+    /// <summary>
+    /// Aday nesnenin kurallardan en az birini sağlayıp sağlamadığını döner.
+    /// </summary>
+    /// <param name="candidate">Değerlendirilecek aday nesne.</param>
+    /// <returns>En az bir kural sağlanıyorsa <see langword="true"/>.</returns>
+    public bool IsSatisfiedBy(T candidate) => left.IsSatisfiedBy(candidate) || right.IsSatisfiedBy(candidate);
+}
+
+/// <summary>
+/// Bir specification sonucunu tersine çevirir.
+/// </summary>
+/// <typeparam name="T">Kuralın değerlendirileceği model tipi.</typeparam>
+public sealed class NotSpecification<T>(ISpecification<T> inner) : ISpecification<T>
+{
+    /// <summary>
+    /// Aday nesnenin iç kuralı sağlamama durumunu döner.
+    /// </summary>
+    /// <param name="candidate">Değerlendirilecek aday nesne.</param>
+    /// <returns>İç kural sağlanmıyorsa <see langword="true"/>.</returns>
+    public bool IsSatisfiedBy(T candidate) => !inner.IsSatisfiedBy(candidate);
+}
+
+/// <summary>
+/// Atölye kayıt başvurusu için gerekli verileri taşır.
+/// </summary>
+/// <param name="Age">Başvuru sahibinin yaşı.</param>
+/// <param name="SeatCount">Atölyedeki toplam kontenjan.</param>
+/// <param name="ReservedSeatCount">Dolu kontenjan sayısı.</param>
+/// <param name="RegistrationDeadlineUtc">Kayıt için son tarih (UTC).</param>
+public sealed record WorkshopRegistration(
+    int Age,
+    int SeatCount,
+    int ReservedSeatCount,
+    DateTime RegistrationDeadlineUtc);
+
+/// <summary>
+/// Atölyede boş kontenjan olup olmadığını kontrol eder.
+/// </summary>
+public sealed class WorkshopHasSeatSpecification : ISpecification<WorkshopRegistration>
+{
+    /// <summary>
+    /// Kayıt için boş kontenjan bulunup bulunmadığını döner.
+    /// </summary>
+    /// <param name="candidate">Değerlendirilecek başvuru.</param>
+    /// <returns>Kontenjan uygunsa <see langword="true"/>.</returns>
+    public bool IsSatisfiedBy(WorkshopRegistration candidate) => candidate.ReservedSeatCount < candidate.SeatCount;
+}
+
+/// <summary>
+/// Başvuru sahibinin minimum yaş şartını sağlayıp sağlamadığını kontrol eder.
+/// </summary>
+/// <param name="minimumAge">Minimum yaş sınırı.</param>
+public sealed class ApplicantMeetsAgeRequirementSpecification(int minimumAge) : ISpecification<WorkshopRegistration>
+{
+    /// <summary>
+    /// Başvuru sahibinin yaşının minimum sınırı karşılayıp karşılamadığını döner.
+    /// </summary>
+    /// <param name="candidate">Değerlendirilecek başvuru.</param>
+    /// <returns>Yaş koşulu sağlanıyorsa <see langword="true"/>.</returns>
+    public bool IsSatisfiedBy(WorkshopRegistration candidate) => candidate.Age >= minimumAge;
+}
+
+/// <summary>
+/// Kayıt son tarihinin geçip geçmediğini kontrol eder.
+/// </summary>
+/// <param name="timeProvider">Sistem zamanını sağlayan provider.</param>
+public sealed class RegistrationDeadlineNotPassedSpecification(TimeProvider timeProvider) : ISpecification<WorkshopRegistration>
+{
+    /// <summary>
+    /// Başvurunun son tarihte veya daha önce yapılıp yapılmadığını döner.
+    /// Bu örnekte son tarih eşitliği kabul edilir (inclusive deadline).
+    /// </summary>
+    /// <param name="candidate">Değerlendirilecek başvuru.</param>
+    /// <returns>Son tarih geçmediyse <see langword="true"/>.</returns>
+    public bool IsSatisfiedBy(WorkshopRegistration candidate)
+        => timeProvider.GetUtcNow().UtcDateTime <= candidate.RegistrationDeadlineUtc;
+}
+
+/// <summary>
+/// Uygulamanın kayıt kabul kararını nasıl verdiğini gösterir.
+/// </summary>
+public static class Example
+{
+    /// <summary>
+    /// Bileşik specification ile kayıt kabul kararını hesaplar.
+    /// </summary>
+    /// <param name="registration">Değerlendirilecek başvuru.</param>
+    /// <returns>Kayıt kabul ediliyorsa <see langword="true"/>.</returns>
+    public static bool CanRegister(WorkshopRegistration registration)
     {
-        return request.Status == RequestStatus.Draft && request.HasRequiredFields();
+        ISpecification<WorkshopRegistration> specification = new WorkshopHasSeatSpecification();
+        specification = specification.And(new ApplicantMeetsAgeRequirementSpecification(minimumAge: 16));
+        specification = specification.And(new RegistrationDeadlineNotPassedSpecification(TimeProvider.System));
+
+        return specification.IsSatisfiedBy(registration);
     }
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+## 6. Avantajlar
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+- İş kuralları tek bir yerde ve isimlendirilmiş biçimde yaşar.
+- Kural bileşimi netleştiği için kod okuma maliyeti düşer.
+- Yeni koşullar eklenirken mevcut akışı kırmadan genişleme yapılır.
+- Rule-centric unit test yazımı kolaylaşır.
 
-## 8. Ne Zaman Kullanılmamalıdır?
+## 7. Riskler ve Sınırlar
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Çok küçük problemlerde gereksiz soyutlama hissi oluşturabilir.
+- Aşırı parçalanmış specification sınıfları navigasyonu zorlaştırabilir.
+- Kural isimleri belirsiz seçilirse desenin okunabilirlik avantajı kaybolur.
 
-## 9. Avantajlar
+## 8. Test Edilebilirlik Notları
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
-
-## 10. Dikkat Edilecekler
-
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
-
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+- Her specification sınıfı için ayrı birim test yazılmalıdır.
+- `And`, `Or`, `Not` birleşimleri için de davranış testleri eklenmelidir.
+- Sınır değerler (yaş limiti, kontenjanın son koltuğu, son kayıt dakikası) özellikle test edilmelidir.
