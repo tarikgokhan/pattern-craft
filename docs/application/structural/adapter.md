@@ -1,110 +1,166 @@
 # Adapter
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Structural Patterns |
-| Pattern | Adapter |
-| Dosya Yolu | `docs/application/structural/adapter.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Infrastructure, Application veya API sınırı |
+Adapter, birbirini anlamayan iki yapının arasına sakin ama çok yetenekli bir çevirmen yerleştirir. Bir taraf “bana `INotificationSender` ver” derken, diğer tarafta yalnızca eski bir servis ya da üçüncü parti SDK varsa, Adapter bu iki dünyanın birbirine çarpmadan konuşmasını sağlar.
 
-## 1. Kısa Tanım
+## Kısa Tanım
 
-Adapter, uyumsuz arayüzleri sistemin beklediği yapıya uyarlar.
+Bu desen, mevcut sistemin beklediği arayüz ile eldeki bileşenin sunduğu arayüz uyuşmadığında devreye girer. Özellikle .NET projelerinde legacy servisler, üçüncü parti paketler, eski API istemcileri veya ekipler arası farklı sözleşmeler yüzünden ortaya çıkan uyumsuzlukları yönetmek için çok kullanışlıdır.
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+## Çözdüğü Problem
 
-## 2. Çözdüğü Problem
+Bir uygulamanın iç katmanları çoğu zaman temiz, anlamlı ve test edilebilir kontratlarla çalışmak ister. Fakat dış dünya bu kadar kibar davranmaz:
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+- Bir kütüphane farklı method isimleri kullanır.
+- Gelen veri modeli uygulamanın ihtiyaç duyduğu modelle birebir örtüşmez.
+- Eski bir servis senkron çalışırken yeni akış asenkron ilerler.
+- Üçüncü parti bir bağımlılığın teknik detayları domain veya application katmanına sızmaya başlar.
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+Bu durumda Adapter, dış sistemin karmaşasını içeri taşımadan bir dönüşüm katmanı kurar. Böylece uygulamanın geri kalanı hâlâ kendi konuştuğu dili konuşabilir.
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+## Ne Zaman Kullanılır?
 
-## 3. Kurumsal Talep Yönetimi Örneği
+- Mevcut bir sınıf işinizi görüyor ama arayüzü sisteminizin beklentisine uymuyorsa
+- Dış servis ya da kütüphane değişimlerinden çekirdek iş akışını korumak istiyorsanız
+- Uygulama içinde aynı çeviri mantığı farklı yerlerde tekrar etmeye başladıysa
+- Legacy kodu tamamen yeniden yazmadan modern bir sözleşmeye bağlamak istiyorsanız
+- Unit testlerde dış bağımlılığı kolayca taklit edilebilir bir arayüze dönüştürmek istiyorsanız
 
-Harici bir sistemden gelen farklı model, uygulamanın beklediği iç modele çevrilir.
+## Gerçek Hayat Senaryosu
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+Bir şehir müzesi için ziyaretçi deneyimi uygulaması geliştirdiğinizi düşünün. Uygulamanız, sergi salonuna giren ziyaretçiye doğru sesli rehber kaydını başlatmak istiyor. Yeni uygulama katmanı bunun için `IAudioGuidePlayer` arayüzünü kullanıyor.
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+Ancak binadaki mevcut cihaz entegrasyonu yıllar önce yazılmış bir SDK üzerinden geliyor ve yalnızca `MuseumDeviceAudioService.PlayTrack(string roomCode)` methodunu sunuyor. Uygulama oda bazlı bir `ExhibitAudioRequest` ile çalışırken, eski SDK sadece düz bir salon kodu biliyor.
 
-`LegacyApprovalAdapter`, `ExternalDocumentAdapter` veya `DirectoryUserAdapter` gibi sınıflarla uygulanabilir.
+Tam bu noktada Adapter devreye girer. Yeni akış değişmez, eski entegrasyon da yerinde kalır; sadece araya iki tarafın dilini bilen küçük bir sınıf girer.
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+## Yapısal Bakış
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+```mermaid
+classDiagram
+    class IAudioGuidePlayer {
+        <<interface>>
+        +PlayAsync(ExhibitAudioRequest request, CancellationToken cancellationToken)
+    }
 
-## 5. Basit Akış
+    class MuseumAudioGuideAdapter {
+        -MuseumDeviceAudioService _deviceAudioService
+        +PlayAsync(ExhibitAudioRequest request, CancellationToken cancellationToken)
+    }
 
-```text
-External Model -> Adapter -> Internal Contract
+    class MuseumDeviceAudioService {
+        +PlayTrack(string roomCode)
+    }
+
+    class ExhibitAudioRequest {
+        +string ExhibitCode
+        +string RoomCode
+    }
+
+    IAudioGuidePlayer <|.. MuseumAudioGuideAdapter
+    MuseumAudioGuideAdapter --> MuseumDeviceAudioService
+    MuseumAudioGuideAdapter --> ExhibitAudioRequest
 ```
 
-## 6. Örnek Kod / Taslak
+## C# Örnek Kodu
 
 ```csharp
-public sealed class LegacyApprovalAdapter
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PatternCraft.Structural.Adapter;
+
+/// <summary>
+/// Sesli rehber başlatma isteğini temsil eder.
+/// </summary>
+/// <param name="ExhibitCode">Ziyaretçinin bulunduğu sergi kodu.</param>
+/// <param name="RoomCode">Cihaz entegrasyonunun beklediği salon kodu.</param>
+public sealed record ExhibitAudioRequest(string ExhibitCode, string RoomCode);
+
+/// <summary>
+/// Uygulamanın sesli rehber oynatmak için kullandığı hedef arayüzdür.
+/// </summary>
+public interface IAudioGuidePlayer
 {
-    public ApprovalDecision ToApprovalDecision(LegacyApprovalResponse response)
+    /// <summary>
+    /// İstenen sergi için uygun ses kaydını başlatır.
+    /// </summary>
+    /// <param name="request">Sergi ve salon bilgisini taşıyan istek nesnesi.</param>
+    /// <param name="cancellationToken">İşlemi iptal etmek için kullanılan token.</param>
+    /// <returns>İşlem tamamlandığında dönen görev nesnesi.</returns>
+    Task PlayAsync(ExhibitAudioRequest request, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Legacy cihaz SDK'sını temsil eder.
+/// </summary>
+public sealed class MuseumDeviceAudioService
+{
+    /// <summary>
+    /// Verilen salon kodu için ilgili kaydı başlatır.
+    /// </summary>
+    /// <param name="roomCode">SDK'nın anlayabildiği salon kodu.</param>
+    public void PlayTrack(string roomCode)
     {
-        return new ApprovalDecision(
-            response.IsAccepted,
-            response.DecisionNote,
-            response.DecidedAtUtc);
+        Console.WriteLine($"Playing audio track for room '{roomCode}'.");
+    }
+}
+
+/// <summary>
+/// Yeni uygulama kontratını legacy cihaz servisine uyarlayan adapter sınıfıdır.
+/// </summary>
+public sealed class MuseumAudioGuideAdapter : IAudioGuidePlayer
+{
+    private readonly MuseumDeviceAudioService _deviceAudioService;
+
+    /// <summary>
+    /// <see cref="MuseumAudioGuideAdapter"/> sınıfının yeni bir örneğini başlatır.
+    /// </summary>
+    /// <param name="deviceAudioService">Legacy cihaz servisi bağımlılığı.</param>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="deviceAudioService"/> değeri null ise fırlatılır.
+    /// </exception>
+    public MuseumAudioGuideAdapter(MuseumDeviceAudioService deviceAudioService)
+    {
+        _deviceAudioService = deviceAudioService ?? throw new ArgumentNullException(nameof(deviceAudioService));
+    }
+
+    /// <inheritdoc />
+    public Task PlayAsync(ExhibitAudioRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        _deviceAudioService.PlayTrack(request.RoomCode);
+        return Task.CompletedTask;
     }
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+Bu örnekte application katmanı yalnızca `IAudioGuidePlayer` bilir. Eğer yarın müzedeki cihaz altyapısı tamamen değişirse, etkilenecek yer büyük ihtimalle yalnızca adapter ve onun bağlandığı entegrasyon kodu olur.
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+## Avantajlar
 
-## 8. Ne Zaman Kullanılmamalıdır?
+- Dış bağımlılıkların teknik detaylarını uygulamanın çekirdek akışından uzak tutar.
+- Legacy veya üçüncü parti kodu değiştirmeden sisteme dahil etmeyi kolaylaştırır.
+- Aynı dönüştürme mantığını tek yerde toplayarak tekrar eden kodu azaltır.
+- Dependency Injection ile birlikte kullanıldığında değiştirilebilir ve test edilebilir bir tasarım sunar.
+- Yeni sözleşmeye geçiş sürecinde kademeli modernizasyon yapmayı mümkün kılar.
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+## Riskler ve Sınırlar
 
-## 9. Avantajlar
+- Her uyumsuzluk için ayrı adapter üretmek, kontrolsüz kullanıldığında sınıf sayısını artırabilir.
+- Adapter içine iş kuralı kaçarsa sınıf bir çevirmen olmaktan çıkıp gizli bir servis katmanına dönüşebilir.
+- Çok katmanlı dönüşümler performans açısından küçük de olsa ek maliyet oluşturabilir.
+- Dış bağımlılığın hataları yeterince soyutlanmazsa adapter yalnızca problemi başka bir dosyaya taşımış olur.
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
+## Test Edilebilirlik Notları
 
-## 10. Dikkat Edilecekler
+Adapter genellikle test yazması keyifli desenlerden biridir; çünkü görevi nettir: gelen modeli alır, beklenen kontrata uygun davranışı üretir. Aşağıdaki kontroller çoğu senaryoda yeterlidir:
 
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
+- İstek nesnesindeki alanların doğru bağımlılığa doğru sırayla aktarıldığı doğrulanır.
+- Null girişler ve iptal edilmiş işlemler gibi koruyucu davranışlar test edilir.
+- Dış servisin istisna fırlattığı durumda adapter'ın bunu nasıl yüzeye taşıdığı gözlemlenir.
+- Application servisinin doğrudan legacy sınıfa değil, hedef arayüze bağımlı kaldığı test edilir.
 
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+Kısacası Adapter, “eskiyi çöpe atalım” ile “hiçbir şeye dokunmayalım” arasındaki olgun cevaptır. Doğru yerde kullanıldığında sistemi daha okunur, daha güvenli ve değişime daha dayanıklı hale getirir.

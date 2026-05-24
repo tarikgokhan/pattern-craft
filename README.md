@@ -16,20 +16,20 @@ Application ve mikroservis tasarım desenleri için pratik referans dokümantasy
 | 3 | Application Design Patterns | Creational Patterns | **Factory Method** | Nesne üretme kararını alt sınıflara veya factory yapısına bırakır. | [Factory Method](docs/application/creational/factory-method.md) |
 | 4 | Application Design Patterns | Creational Patterns | **Prototype** | Var olan bir nesneyi kopyalayarak yeni nesne üretir. | [Prototype](docs/application/creational/prototype.md) |
 | 5 | Application Design Patterns | Creational Patterns | **Singleton** | Bir sınıftan uygulama boyunca tek instance kullanılmasını sağlar. | [Singleton](docs/application/creational/singleton.md) |
-| 6 | Application Design Patterns | Structural Patterns | **Adapter** | Uyumsuz arayüzleri sistemin beklediği yapıya uyarlar. | [Adapter](docs/application/structural/adapter.md) |
-| 7 | Application Design Patterns | Structural Patterns | **Bridge** | Soyutlama ile implementasyonu birbirinden ayırır. | [Bridge](docs/application/structural/bridge.md) |
-| 8 | Application Design Patterns | Structural Patterns | **Composite** | Parça-bütün ilişkisini ağaç yapısında modeller. | [Composite](docs/application/structural/composite.md) |
-| 9 | Application Design Patterns | Structural Patterns | **Decorator** | Mevcut nesneye dinamik olarak ek sorumluluklar ekler. | [Decorator](docs/application/structural/decorator.md) |
-| 10 | Application Design Patterns | Structural Patterns | **Facade** | Karmaşık alt sistemleri sade bir arayüzle dışarı açar. | [Facade](docs/application/structural/facade.md) |
-| 11 | Application Design Patterns | Structural Patterns | **Flyweight** | Çok sayıda benzer nesne için ortak veriyi paylaşarak bellek tasarrufu sağlar. | [Flyweight](docs/application/structural/flyweight.md) |
-| 12 | Application Design Patterns | Structural Patterns | **Proxy** | Gerçek nesneye erişimi kontrol eden vekil nesne sağlar. | [Proxy](docs/application/structural/proxy.md) |
-| 13 | Application Design Patterns | Behavioral Patterns | **Chain of Responsibility** | Bir isteği handler zinciri boyunca işler. | [Chain of Responsibility](docs/application/behavioral/chain-of-responsibility.md) |
-| 14 | Application Design Patterns | Behavioral Patterns | **Command** | Bir işlemi nesne olarak temsil eder. | [Command](docs/application/behavioral/command.md) |
-| 15 | Application Design Patterns | Behavioral Patterns | **Interpreter** | Basit dil, ifade veya kural yapısını yorumlar. | [Interpreter](docs/application/behavioral/interpreter.md) |
-| 16 | Application Design Patterns | Behavioral Patterns | **Iterator** | Koleksiyonlar üzerinde standart gezinme mekanizması sağlar. | [Iterator](docs/application/behavioral/iterator.md) |
-| 17 | Application Design Patterns | Behavioral Patterns | **Mediator** | Nesneler arası doğrudan bağımlılığı merkezi aracıyla azaltır. | [Mediator](docs/application/behavioral/mediator.md) |
-| 18 | Application Design Patterns | Behavioral Patterns | **Memento** | Nesnenin önceki durumunu saklayıp geri yüklemeyi sağlar. | [Memento](docs/application/behavioral/memento.md) |
-| 19 | Application Design Patterns | Behavioral Patterns | **Null Object** | Null kontrollerini azaltmak için boş ama güvenli davranış sergileyen nesne kullanır. | [Null Object](docs/application/behavioral/null-object.md) |
+| 6 | Application Design Patterns | Creational Patterns | **Object Pool** | Oluşturması pahalı nesneleri tekrar kullanarak performans ve kaynak yönetimi sağlar. | [Object Pool](docs/application/creational/object-pool.md) |
+| 7 | Application Design Patterns | Structural Patterns | **Adapter** | Uyumsuz arayüzleri sistemin beklediği yapıya uyarlar. | [Adapter](docs/application/structural/adapter.md) |
+| 8 | Application Design Patterns | Structural Patterns | **Bridge** | Soyutlama ile implementasyonu birbirinden ayırır. | [Bridge](docs/application/structural/bridge.md) |
+| 9 | Application Design Patterns | Structural Patterns | **Composite** | Parça-bütün ilişkisini ağaç yapısında modeller. | [Composite](docs/application/structural/composite.md) |
+| 10 | Application Design Patterns | Structural Patterns | **Decorator** | Mevcut nesneye dinamik olarak ek sorumluluklar ekler. | [Decorator](docs/application/structural/decorator.md) |
+| 11 | Application Design Patterns | Structural Patterns | **Facade** | Karmaşık alt sistemleri sade bir arayüzle dışarı açar. | [Facade](docs/application/structural/facade.md) |
+| 12 | Application Design Patterns | Structural Patterns | **Flyweight** | Çok sayıda benzer nesne için ortak veriyi paylaşarak bellek tasarrufu sağlar. | [Flyweight](docs/application/structural/flyweight.md) |
+| 13 | Application Design Patterns | Structural Patterns | **Proxy** | Gerçek nesneye erişimi kontrol eden vekil nesne sağlar. | [Proxy](docs/application/structural/proxy.md) |
+| 14 | Application Design Patterns | Behavioral Patterns | **Chain of Responsibility** | Bir isteği handler zinciri boyunca işler. | [Chain of Responsibility](docs/application/behavioral/chain-of-responsibility.md) |
+| 15 | Application Design Patterns | Behavioral Patterns | **Command** | Bir işlemi nesne olarak temsil eder. | [Command](docs/application/behavioral/command.md) |
+| 16 | Application Design Patterns | Behavioral Patterns | **Interpreter** | Basit dil, ifade veya kural yapısını yorumlar. | [Interpreter](docs/application/behavioral/interpreter.md) |
+| 17 | Application Design Patterns | Behavioral Patterns | **Iterator** | Koleksiyonlar üzerinde standart gezinme mekanizması sağlar. | [Iterator](docs/application/behavioral/iterator.md) |
+| 18 | Application Design Patterns | Behavioral Patterns | **Mediator** | Nesneler arası doğrudan bağımlılığı merkezi aracıyla azaltır. | [Mediator](docs/application/behavioral/mediator.md) |
+| 19 | Application Design Patterns | Behavioral Patterns | **Memento** | Nesnenin önceki durumunu saklayıp geri yüklemeyi sağlar. | [Memento](docs/application/behavioral/memento.md) |
 | 20 | Application Design Patterns | Behavioral Patterns | **Observer** | Bir olay veya değişiklik olduğunda aboneleri bilgilendirir. | [Observer](docs/application/behavioral/observer.md) |
 | 21 | Application Design Patterns | Behavioral Patterns | **State** | Nesnenin davranışını mevcut durumuna göre değiştirir. | [State](docs/application/behavioral/state.md) |
 | 22 | Application Design Patterns | Behavioral Patterns | **Strategy** | Değişebilir algoritmaları ayrı sınıflar halinde yönetir. | [Strategy](docs/application/behavioral/strategy.md) |
@@ -89,13 +89,14 @@ Application ve mikroservis tasarım desenleri için pratik referans dokümantasy
 | 76 | Microservice Design Patterns | Infrastructure Patterns | **Ambassador** | Dış servis iletişimini temsilci proxy üzerinden yönetir. | [Ambassador](docs/microservice/infrastructure/ambassador.md) |
 | 77 | Microservice Design Patterns | Infrastructure Patterns | **Service Mesh** | Servisler arası trafiği platform seviyesinde yönetir. | [Service Mesh](docs/microservice/infrastructure/service-mesh.md) |
 | 78 | Microservice Design Patterns | Observability Patterns | **Log Aggregation** | Log’ları merkezi bir yerde toplar. | [Log Aggregation](docs/microservice/observability/log-aggregation.md) |
-| 78 | Microservice Design Patterns | Observability Patterns | **Application Metrics** | Uygulama ve sistem metriklerini toplar. | [Application Metrics](docs/microservice/observability/application-metrics.md) |
-| 79 | Microservice Design Patterns | Observability Patterns | **Distributed Tracing** | Dağıtık request akışını servisler arasında izler. | [Distributed Tracing](docs/microservice/observability/distributed-tracing.md) |
-| 80 | Microservice Design Patterns | Observability Patterns | **Audit Logging** | Kritik iş olaylarını denetlenebilir şekilde kaydeder. | [Audit Logging](docs/microservice/observability/audit-logging.md) |
-| 81 | Microservice Design Patterns | Observability Patterns | **Health Check** | Servisin çalışabilirlik ve hazırlık durumunu bildirir. | [Health Check](docs/microservice/observability/health-check.md) |
-| 82 | Microservice Design Patterns | Observability Patterns | **Exception Tracking** | Hataları merkezi olarak takip etmeyi sağlar. | [Exception Tracking](docs/microservice/observability/exception-tracking.md) |
-| 83 | Microservice Design Patterns | Modernization Patterns | **Strangler Fig** | Legacy sistemi parça parça yeni yapıya taşır. | [Strangler Fig](docs/microservice/modernization/strangler-fig.md) |
-| 84 | Microservice Design Patterns | Modernization Patterns | **Anti-Corruption Layer** | Farklı model kullanan sistemler arasında koruyucu çeviri katmanı sağlar. | [Anti-Corruption Layer](docs/microservice/modernization/anti-corruption-layer.md) |
-| 85 | Microservice Design Patterns | Modernization Patterns | **Canonical Data Model** | Sistemler arası ortak veri modeli oluşturur. | [Canonical Data Model](docs/microservice/modernization/canonical-data-model.md) |
-| 86 | Microservice Design Patterns | Modernization Patterns | **Open Host Service** | Domain kabiliyetlerini dış sistemlere kontrollü API ile açar. | [Open Host Service](docs/microservice/modernization/open-host-service.md) |
-| 87 | Microservice Design Patterns | Modernization Patterns | **Published Language** | Sistemler arası ortak sözleşme dili oluşturur. | [Published Language](docs/microservice/modernization/published-language.md) |
+| 79 | Microservice Design Patterns | Observability Patterns | **Application Metrics** | Uygulama ve sistem metriklerini toplar. | [Application Metrics](docs/microservice/observability/application-metrics.md) |
+| 80 | Microservice Design Patterns | Observability Patterns | **Distributed Tracing** | Dağıtık request akışını servisler arasında izler. | [Distributed Tracing](docs/microservice/observability/distributed-tracing.md) |
+| 81 | Microservice Design Patterns | Observability Patterns | **Audit Logging** | Kritik iş olaylarını denetlenebilir şekilde kaydeder. | [Audit Logging](docs/microservice/observability/audit-logging.md) |
+| 82 | Microservice Design Patterns | Observability Patterns | **Health Check** | Servisin çalışabilirlik ve hazırlık durumunu bildirir. | [Health Check](docs/microservice/observability/health-check.md) |
+| 83 | Microservice Design Patterns | Observability Patterns | **Exception Tracking** | Hataları merkezi olarak takip etmeyi sağlar. | [Exception Tracking](docs/microservice/observability/exception-tracking.md) |
+| 84 | Microservice Design Patterns | Modernization Patterns | **Strangler Fig** | Legacy sistemi parça parça yeni yapıya taşır. | [Strangler Fig](docs/microservice/modernization/strangler-fig.md) |
+| 85 | Microservice Design Patterns | Modernization Patterns | **Anti-Corruption Layer** | Farklı model kullanan sistemler arasında koruyucu çeviri katmanı sağlar. | [Anti-Corruption Layer](docs/microservice/modernization/anti-corruption-layer.md) |
+| 86 | Microservice Design Patterns | Modernization Patterns | **Canonical Data Model** | Sistemler arası ortak veri modeli oluşturur. | [Canonical Data Model](docs/microservice/modernization/canonical-data-model.md) |
+| 87 | Microservice Design Patterns | Modernization Patterns | **Open Host Service** | Domain kabiliyetlerini dış sistemlere kontrollü API ile açar. | [Open Host Service](docs/microservice/modernization/open-host-service.md) |
+| 88 | Microservice Design Patterns | Modernization Patterns | **Published Language** | Sistemler arası ortak sözleşme dili oluşturur. | [Published Language](docs/microservice/modernization/published-language.md) |
+

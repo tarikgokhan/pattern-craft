@@ -1,67 +1,84 @@
 # Prototype
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Creational Patterns |
-| Pattern | Prototype |
-| Dosya Yolu | `docs/application/creational/prototype.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application veya Infrastructure |
-
 ## 1. Kısa Tanım
 
-Prototype, var olan bir nesneyi kopyalayarak yeni nesne üretir.
+Prototype, yeni nesne üretimini `new` ile sıfırdan kurmak yerine, eldeki güvenilir bir örneği kopyalayarak hızlandırır.
 
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Özellikle "aynı iskelet, farklı detay" senaryolarında akışı ciddi biçimde sadeleştirir: önce temel şablonu alır, sonra sadece değişecek alanları güncellersiniz.
 
 ## 2. Çözdüğü Problem
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+Bazı nesneler pahalı kurulur: varsayılan ayarlar, doğrulamalar, alt koleksiyonlar, kurallar derken üretim adımı uzar. Bu yapı her seferinde tekrarlandığında kod gürültüsü artar ve hata riski yükselir.
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+Prototype bu noktada devreye girer:
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+- Karmaşık başlangıç kurulumunu tek bir referans örnekte toplar.
+- Yeni varyasyonları kopya üstünden üreterek kod tekrarını azaltır.
+- Üretim akışını kısa, okunur ve test edilebilir tutar.
 
-## 3. Kurumsal Talep Yönetimi Örneği
+## 3. İş Modeli Örneği (Etkinlik Atölyesi Şablonlama)
 
-Sık kullanılan belge veya talep şablonları kopyalanarak yeni taslaklar hızlıca oluşturulur.
+Bir etkinlik platformunda sık kullanılan atölye planları olduğunu düşünün: "Başlangıç", "İleri Seviye", "Hafta Sonu Hızlandırılmış" gibi.
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+Her yeni atölye için süre, kontenjan, materyal listesi ve oturum yapısını sıfırdan yazmak yerine, uygun şablon klonlanır ve yalnızca eğitmen, tarih, başlık gibi alanlar güncellenir. Böylece ekip hem daha hızlı ilerler hem de her yeni kayıt için aynı temel kalite çizgisini korur.
 
 ## 4. .NET İçinde Kullanım Yaklaşımı
 
-`DocumentTemplate.Clone()`, `RequestTemplate.CreateDraft()` veya test fixture kopyalama senaryolarında kullanılabilir.
+.NET tarafında Prototype çoğunlukla `record` tipleri, kopya kurucular veya özel `Clone()` metotlarıyla uygulanır.
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
-
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+- Public API yüzeyinde XML documentation comments kullanın.
+- Kopyalama sırasında paylaşılan mutable referanslara dikkat edin (gerekirse deep copy uygulayın).
+- Kopya sonrası özelleştirme adımlarını niyet odaklı metotlarla görünür tutun.
 
 ## 5. Basit Akış
 
-```text
-Template -> Clone -> Customized Draft
+```mermaid
+flowchart LR
+    A[Hazır Atölye Şablonu] --> B[Clone]
+    B --> C[Yeni Atölye Taslağı]
+    C --> D[Başlık/Tarih/Eğitmen Özelleştirme]
 ```
 
 ## 6. Örnek Kod / Taslak
 
 ```csharp
-public sealed record RequestTemplate(
-    string Title,
-    string Description,
-    RequestPriority Priority)
+/// <summary>
+/// Atölye şablonlarının klonlanması için ortak davranışı tanımlar.
+/// </summary>
+public interface IPrototype<out T>
 {
-    public RequestTemplate CloneWithTitle(string title)
+    /// <summary>
+    /// Geçerli örneğin kopyasını üretir.
+    /// </summary>
+    T Clone();
+}
+
+/// <summary>
+/// Etkinlik platformunda tekrar kullanılabilir atölye şablonunu temsil eder.
+/// </summary>
+public sealed record WorkshopTemplate(
+    string Title,
+    TimeSpan Duration,
+    int Capacity,
+    IReadOnlyList<string> Materials) : IPrototype<WorkshopTemplate>
+{
+    /// <summary>
+    /// Atölye şablonunun güvenli bir kopyasını üretir.
+    /// Materials listesi shallow copy olarak çoğaltılır; string immutable olduğu için bu yaklaşım güvenlidir.
+    /// </summary>
+    public WorkshopTemplate Clone()
+    {
+        return new WorkshopTemplate(
+            Title,
+            Duration,
+            Capacity,
+            Materials.ToArray());
+    }
+
+    /// <summary>
+    /// Kopyadan yeni bir atölye taslağı üretir ve başlığı günceller.
+    /// </summary>
+    public WorkshopTemplate CloneWithTitle(string title)
     {
         return this with { Title = title };
     }
@@ -70,41 +87,26 @@ public sealed record RequestTemplate(
 
 ## 7. Ne Zaman Kullanılır?
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+- Başlangıç konfigürasyonu uzun ve tekrar ediyorsa
+- Aynı nesnenin küçük farklarla çok sayıda varyasyonu üretiliyorsa
+- Üretim sürecini basitleştirirken mevcut doğrulanmış ayarları korumak isteniyorsa
+- Testlerde hızlı ve tutarlı fixture üretimi gerekiyorsa
 
 ## 8. Ne Zaman Kullanılmamalıdır?
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Nesne yapısı zaten çok basitse ve doğrudan constructor yeterliyse
+- Kopyalama maliyeti, sıfırdan üretmekten daha yüksekse
+- Mutable iç durum güvenle ayrıştırılamıyorsa ve yan etki riski yüksekse
 
 ## 9. Avantajlar
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
+- Üretim adımlarını kısaltır, geliştirici hızını artırır.
+- Tekrarlanan başlangıç kodunu azaltır.
+- Doğrulanmış şablonlardan ilerleyerek tutarlılığı artırır.
+- Test verisi üretimini kolaylaştırır.
 
-## 10. Dikkat Edilecekler
+## 10. Riskler
 
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
-
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+- Yanlış kopyalama stratejisi (shallow/deep copy) beklenmeyen paylaşımlara neden olabilir.
+- Klonlanan nesnenin kritik alanları sonradan fark edilmeden taşınabilir.
+- Gereksiz kullanıldığında basit bir modeli gereksiz karmaşık hale getirebilir.

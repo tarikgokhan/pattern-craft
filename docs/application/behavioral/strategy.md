@@ -1,111 +1,209 @@
 # Strategy
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Behavioral Patterns |
-| Pattern | Strategy |
-| Dosya Yolu | `docs/application/behavioral/strategy.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application ve Domain davranışları |
-
 ## 1. Kısa Tanım
 
-Strategy, değişebilir algoritmaları ayrı sınıflar halinde yönetir.
-
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Strategy, değişebilir bir algoritma ailesini ortak bir arayüz arkasına alır ve çalışma anında uygun algoritmayı seçilebilir hale getirir. Böylece “aynı işi farklı kurallarla yapma” ihtiyacı geldiğinde mevcut akışı parçalamadan ilerleyebilirsin.
 
 ## 2. Çözdüğü Problem
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+Bir akışta art arda büyüyen `if/else` veya `switch` blokları genellikle şu sinyali verir: “Kurallar değişiyor ama kod tek yerde sıkıştı.”
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+Strategy bu sıkışıklığı açar:
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+- Algoritmaları birbirinden ayırır.
+- Yeni bir kural eklerken mevcut kodu daha az etkilersin.
+- Testlerde her algoritmayı tek başına doğrulamak kolaylaşır.
+- Context sınıfı “hangi adımlar var?” ile ilgilenir, “nasıl hesaplanıyor?” detayı stratejiye taşınır.
 
-## 3. Kurumsal Talep Yönetimi Örneği
+## 3. Ne Zaman Kullanılır?
 
-Talep önceliklendirme, atama veya SLA hesaplama algoritmaları değişebilir olduğunda kullanılır.
+- Aynı işin farklı varyasyonları varsa (ör. hızlı rota, ekonomik rota, dengeli rota).
+- Yeni varyasyonların düzenli olarak eklendiği bir ürün geliştiriliyorsa.
+- Kuralların bağımsız test edilmesi önemliyse.
+- İş akışını sade tutup karar detayını ayrı sınıflara taşımak isteniyorsa.
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+## 4. Ne Zaman Kullanılmamalıdır?
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+- Sadece tek algoritma varsa ve yakın vadede değişim beklenmiyorsa.
+- Soyutlama maliyeti, problemin kendisinden daha büyük kalıyorsa.
+- Ekipte desenin kullanım amacı netleşmeden “sırf pattern olsun” diye ekleniyorsa.
 
-`IAssignmentStrategy`, `ISlaCalculationStrategy` gibi interface’lerle uygulanabilir.
+## 5. Gerçek Hayat Senaryosu (Finans Dışı)
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+Bir şehir içi teslimat uygulaması düşün:
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
+- Kullanıcı siparişi oluşturuyor.
+- Sistem teslimat yöntemi seçiyor: **Hızlı**, **Ekonomik**, **Yeşil Rota**.
+- Her yöntemin rota ve süre hesaplama yaklaşımı farklı.
 
-## 5. Basit Akış
+Bu senaryoda `IRouteStrategy` arayüzü tanımlanır. Her rota türü kendi stratejisiyle hesaplanır. Yeni bir “Gece Teslimatı” modeli geldiğinde, mevcut stratejilere dokunmadan yeni sınıf eklemek yeterli olur.
 
-```text
-Context -> Selected Strategy -> Algorithm
+## 6. UML / Mermaid Diyagramı
+
+```mermaid
+classDiagram
+    class DeliveryPlanner {
+        -IRouteStrategy routeStrategy
+        +DeliveryPlanner(IRouteStrategy routeStrategy)
+        +Plan(CargoOrder order) RoutePlan
+    }
+
+    class IRouteStrategy {
+        <<interface>>
+        +BuildPlan(CargoOrder order) RoutePlan
+    }
+
+    class FastRouteStrategy {
+        +BuildPlan(CargoOrder order) RoutePlan
+    }
+
+    class EconomicRouteStrategy {
+        +BuildPlan(CargoOrder order) RoutePlan
+    }
+
+    class GreenRouteStrategy {
+        +BuildPlan(CargoOrder order) RoutePlan
+    }
+
+    DeliveryPlanner --> IRouteStrategy
+    IRouteStrategy <|.. FastRouteStrategy
+    IRouteStrategy <|.. EconomicRouteStrategy
+    IRouteStrategy <|.. GreenRouteStrategy
 ```
 
-## 6. Örnek Kod / Taslak
+## 7. C# Örnek Kod
 
 ```csharp
-public interface IAssignmentStrategy
+namespace PatternCraft.Behavioral.Strategy;
+
+/// <summary>
+/// Teslimat planı için gerekli temel sipariş bilgilerini temsil eder.
+/// </summary>
+/// <param name="DistanceInKm">Teslimat mesafesi (km).</param>
+/// <param name="IsFragile">Paket kırılgan mı?</param>
+public sealed record CargoOrder(decimal DistanceInKm, bool IsFragile);
+
+/// <summary>
+/// Strateji sonucunda üretilen rota planı bilgisini temsil eder.
+/// </summary>
+/// <param name="Mode">Teslimat modu.</param>
+/// <param name="EstimatedMinutes">Tahmini teslimat süresi (dakika).</param>
+public sealed record RoutePlan(string Mode, int EstimatedMinutes);
+
+/// <summary>
+/// Sipariş için rota planı üreten stratejilerin ortak sözleşmesini tanımlar.
+/// </summary>
+public interface IRouteStrategy
 {
-    AssignedTeam Assign(Request request);
+    /// <summary>
+    /// Verilen sipariş için rota planı oluşturur.
+    /// </summary>
+    /// <param name="order">Planlanacak sipariş.</param>
+    /// <returns>Hesaplanan rota planı.</returns>
+    RoutePlan BuildPlan(CargoOrder order);
 }
 
-public sealed class PriorityBasedAssignmentStrategy : IAssignmentStrategy
+/// <summary>
+/// Teslimatı en kısa sürede tamamlamayı hedefleyen stratejidir.
+/// </summary>
+public sealed class FastRouteStrategy : IRouteStrategy
 {
-    public AssignedTeam Assign(Request request) => request.Priority.IsHigh
-        ? AssignedTeam.Specialist
-        : AssignedTeam.Standard;
+    private const int NearDistanceMinutes = 20;
+    private const int FarDistanceMinutes = 35;
+    private const int FragilePackageMinutes = 10;
+
+    /// <inheritdoc />
+    public RoutePlan BuildPlan(CargoOrder order)
+    {
+        var baseMinutes = order.DistanceInKm <= 5m ? NearDistanceMinutes : FarDistanceMinutes;
+        var fragilePenalty = order.IsFragile ? FragilePackageMinutes : 0;
+
+        return new RoutePlan("Fast", baseMinutes + fragilePenalty);
+    }
+}
+
+/// <summary>
+/// Yakıt ve operasyon maliyetini dengeleyen stratejidir.
+/// </summary>
+public sealed class EconomicRouteStrategy : IRouteStrategy
+{
+    private const int NearDistanceMinutes = 35;
+    private const int FarDistanceMinutes = 55;
+    private const int FragilePackageMinutes = 5;
+
+    /// <inheritdoc />
+    public RoutePlan BuildPlan(CargoOrder order)
+    {
+        var baseMinutes = order.DistanceInKm <= 5m ? NearDistanceMinutes : FarDistanceMinutes;
+        var fragilePenalty = order.IsFragile ? FragilePackageMinutes : 0;
+
+        return new RoutePlan("Economic", baseMinutes + fragilePenalty);
+    }
+}
+
+/// <summary>
+/// Karbon ayak izini azaltmayı hedefleyen stratejidir.
+/// </summary>
+public sealed class GreenRouteStrategy : IRouteStrategy
+{
+    private const int NearDistanceMinutes = 40;
+    private const int FarDistanceMinutes = 60;
+    private const int FragilePackageMinutes = 5;
+
+    /// <inheritdoc />
+    public RoutePlan BuildPlan(CargoOrder order)
+    {
+        var baseMinutes = order.DistanceInKm <= 5m ? NearDistanceMinutes : FarDistanceMinutes;
+        var fragilePenalty = order.IsFragile ? FragilePackageMinutes : 0;
+
+        return new RoutePlan("Green", baseMinutes + fragilePenalty);
+    }
+}
+
+/// <summary>
+/// Context: Seçilen stratejiye göre teslimat planını oluşturur.
+/// </summary>
+public sealed class DeliveryPlanner
+{
+    private readonly IRouteStrategy _routeStrategy;
+
+    /// <summary>
+    /// Yeni bir <see cref="DeliveryPlanner"/> örneği oluşturur.
+    /// </summary>
+    /// <param name="routeStrategy">Kullanılacak rota stratejisi.</param>
+    public DeliveryPlanner(IRouteStrategy routeStrategy)
+    {
+        _routeStrategy = routeStrategy;
+    }
+
+    /// <summary>
+    /// Sipariş için stratejiye delegasyon yaparak rota planı üretir.
+    /// </summary>
+    /// <param name="order">Planlanacak sipariş.</param>
+    /// <returns>Seçilen stratejiye göre üretilmiş plan.</returns>
+    public RoutePlan Plan(CargoOrder order)
+    {
+        return _routeStrategy.BuildPlan(order);
+    }
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+## 8. Avantajlar
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+- Değişen algoritmalar birbirinden bağımsız geliştirilir.
+- Yeni strateji eklemek, mevcut stratejileri bozma riskini azaltır.
+- Context sınıfı sade kalır; okunabilirlik artar.
+- Birim testte her stratejiyi ayrı doğrulamak kolaydır.
 
-## 8. Ne Zaman Kullanılmamalıdır?
+## 9. Riskler
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Çok küçük bir problemde gereksiz soyutlama hissi oluşturabilir.
+- Strateji sayısı arttıkça doğru stratejinin seçimi için ek orkestrasyon gerekebilir.
+- İsimlendirme zayıf yapılırsa “hangi strateji ne yapıyor?” görünürlüğü düşer.
 
-## 9. Avantajlar
+## 10. Test Edilebilirlik Notları
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
-
-## 10. Dikkat Edilecekler
-
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
-
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+- Her strateji sınıfı için ayrı unit test yazılmalıdır.
+- Context testlerinde gerçek strateji yerine test double/fake strateji kullanılabilir.
+- Kenar durumları (0 km, uzun mesafe, kırılgan paket) ayrı test case olarak ele alınmalıdır.
+- Strateji seçme mekanizması farklı bir factory veya resolver’da ise o bileşen de bağımsız test edilmelidir.
