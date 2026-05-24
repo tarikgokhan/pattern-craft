@@ -1,106 +1,198 @@
 # Observer
 
-| Alan | Değer |
-|---|---|
-| Ana Kategori | Application Design Patterns |
-| Alt Kategori | Behavioral Patterns |
-| Pattern | Observer |
-| Dosya Yolu | `docs/application/behavioral/observer.md` |
-| Odak | Tek uygulama / tek mikroservis içi kod mimarisi |
-| Önerilen Katman | Application ve Domain davranışları |
-
 ## 1. Kısa Tanım
 
-Observer, bir olay veya değişiklik olduğunda aboneleri bilgilendirir.
-
-Örnekler, sektör bağımsız kalması için **Kurumsal Talep Yönetimi API'si** üzerinden verilmiştir. Bu örnek domain; talep oluşturma, onay akışı, audit log, bildirim simülasyonu, raporlama ve dış sistem entegrasyon simülasyonu gibi kurumsal uygulamalarda sık görülen ihtiyaçları temsil eder.
+Observer, bir nesnenin durumu değiştiğinde o nesneyi izleyen tüm abonelerin otomatik olarak haberdar edilmesini sağlar. Böylece “değişiklik olduysa herkese tek tek haber ver” yükü tek bir noktada toplanır.
 
 ## 2. Çözdüğü Problem
 
-Bu desen, kod içinde sorumlulukların dağılması, tekrar eden karar bloklarının çoğalması, test edilebilirliğin azalması veya teknik detayların iş akışına karışması gibi problemleri azaltmak için kullanılır.
+Bir ekranda veya süreçte aynı veriyi takip eden birden fazla bileşen olduğunda kod hızla dağılır:
 
-Özellikle .NET tabanlı kurumsal API projelerinde amaç şudur:
+- Değişiklik sonrası bildirimler farklı yerlere kopyalanır.
+- Yeni bir abone eklendiğinde mevcut akışa müdahale etmek gerekir.
+- Yayınlayan nesne, dinleyicilerin teknik detaylarına bağımlı hale gelir.
 
-- Controller veya endpoint seviyesini sade tutmak
-- Application katmanında use-case akışını okunabilir hale getirmek
-- Domain davranışlarını teknik detaylardan korumak
-- Değişen davranışları izole etmek
-- Kod tekrarını kontrollü biçimde azaltmak
-- Unit test yazılabilecek küçük bileşenler üretmek
+Observer bu düğümü çözer: yayınlayan taraf sadece “değişiklik oldu” der, aboneler kendi reaksiyonunu kendi dünyasında yönetir.
 
-## 3. Kurumsal Talep Yönetimi Örneği
+## 3. Ne Zaman Kullanılır?
 
-Talep durumu değiştiğinde audit, bildirim ve raporlama bileşenleri haberdar edilir.
+- Tek bir olayın birden fazla çıktısı varsa (bildirim, log, metrik, UI güncellemesi).
+- Yeni abonelerin mevcut akışı bozmadan eklenmesi gerekiyorsa.
+- Publisher ile subscriber arasında gevşek bağlılık hedefleniyorsa.
+- Domain event veya uygulama içi event mimarisi kuruluyorsa.
 
-Bu örnek, gerçek bir sektör bağımlılığı üretmeden desenin nasıl kullanılabileceğini gösterir. Talep oluşturma, onay, revizyon, audit ve raporlama akışları bu desen için yeterince zengin bir çalışma alanı sağlar.
+## 4. İş Modeli Örneği (Finans Dışı)
 
-## 4. .NET İçinde Kullanım Yaklaşımı
+Bir kampüs etkinlik uygulaması düşünelim: yeni bir etkinlik yayınlandığında mobil uygulama bildirimi, e-posta özeti ve dijital kiosk ekranı aynı anda güncellenmeli.  
+Etkinlik panosu sadece “yeni etkinlik eklendi” bilgisini yayınlar; her kanal kendi formatına göre işi tamamlar. Yeni bir kanal (ör. akıllı saat bildirimi) geldiğinde mevcut kodun kalbi kırılmaz, sadece yeni bir observer eklenir.
 
-Domain event, integration event veya in-process event handler yapıları observer mantığına yakındır.
+## 5. Mermaid Diyagramı
 
-Uygulama yapılırken aşağıdaki kurallar korunmalıdır:
+```mermaid
+classDiagram
+    class EventBoard {
+      +Attach(IEventSubscriber)
+      +Detach(IEventSubscriber)
+      +PublishEvent(string eventTitle)
+    }
+    class IEventSubscriber {
+      <<interface>>
+      +Update(string eventTitle)
+    }
+    class MobileAppSubscriber
+    class EmailSubscriber
+    class KioskSubscriber
 
-- Interface ve class isimleri açık ve niyet belirten şekilde seçilmelidir.
-- `Manager`, `Helper`, `Util` gibi belirsiz isimlerden kaçınılmalıdır.
-- Public class ve public üyelerde XML Documentation Comment standardı uygulanmalıdır.
-- Async operasyonlarda `CancellationToken` kullanılmalıdır.
-- Domain entity doğrudan API contract olarak dışarı açılmamalıdır.
-- Test edilebilirlik için somut bağımlılıklar yerine abstraction kullanılmalıdır.
-
-## 5. Basit Akış
-
-```text
-Event Publisher -> Subscriber A + Subscriber B + Subscriber C
+    EventBoard --> IEventSubscriber : notifies
+    IEventSubscriber <|.. MobileAppSubscriber
+    IEventSubscriber <|.. EmailSubscriber
+    IEventSubscriber <|.. KioskSubscriber
 ```
 
-## 6. Örnek Kod / Taslak
+## 6. C# Örnek Kodu (.NET)
 
 ```csharp
-public sealed record RequestApprovedDomainEvent(Guid RequestId, string ApprovedBy);
+using System;
+using System.Collections.Generic;
 
-public interface IDomainEventHandler<in TEvent>
+namespace PatternCraft.Behavioral.Observer;
+
+/// <summary>
+/// Publisher tarafı için ortak sözleşmeyi temsil eder.
+/// </summary>
+public interface IEventPublisher
 {
-    Task HandleAsync(TEvent domainEvent, CancellationToken cancellationToken);
+    /// <summary>
+    /// Yeni bir abone ekler.
+    /// </summary>
+    /// <param name="subscriber">Bildirim alacak abone.</param>
+    void Attach(IEventSubscriber subscriber);
+
+    /// <summary>
+    /// Aboneliği kaldırır.
+    /// </summary>
+    /// <param name="subscriber">Kaldırılacak abone.</param>
+    void Detach(IEventSubscriber subscriber);
+
+    /// <summary>
+    /// Yeni bir etkinlik yayımlar ve tüm aboneleri bilgilendirir.
+    /// </summary>
+    /// <param name="eventTitle">Yayımlanan etkinliğin başlığı.</param>
+    void PublishEvent(string eventTitle);
+}
+
+/// <summary>
+/// Observer tarafı için ortak sözleşmeyi temsil eder.
+/// </summary>
+public interface IEventSubscriber
+{
+    /// <summary>
+    /// Publisher güncellendiğinde çağrılır.
+    /// </summary>
+    /// <param name="eventTitle">Yayımlanan etkinlik başlığı.</param>
+    void Update(string eventTitle);
+}
+
+/// <summary>
+/// Kampüs etkinlik panosunu temsil eden concrete subject.
+/// </summary>
+public sealed class EventBoard : IEventPublisher
+{
+    private readonly List<IEventSubscriber> _subscribers = new();
+
+    /// <inheritdoc />
+    public void Attach(IEventSubscriber subscriber)
+    {
+        if (!_subscribers.Contains(subscriber))
+        {
+            _subscribers.Add(subscriber);
+        }
+    }
+
+    /// <inheritdoc />
+    public void Detach(IEventSubscriber subscriber)
+    {
+        _subscribers.Remove(subscriber);
+    }
+
+    /// <inheritdoc />
+    public void PublishEvent(string eventTitle)
+    {
+        foreach (var subscriber in _subscribers)
+        {
+            subscriber.Update(eventTitle);
+        }
+    }
+}
+
+/// <summary>
+/// Mobil uygulama kanalına bildirim gönderen observer.
+/// </summary>
+public sealed class MobileAppSubscriber : IEventSubscriber
+{
+    /// <inheritdoc />
+    public void Update(string eventTitle)
+    {
+        Console.WriteLine($"[Mobile] Yeni etkinlik: {eventTitle}");
+    }
+}
+
+/// <summary>
+/// E-posta kanalına bildirim gönderen observer.
+/// </summary>
+public sealed class EmailSubscriber : IEventSubscriber
+{
+    /// <inheritdoc />
+    public void Update(string eventTitle)
+    {
+        Console.WriteLine($"[Email] Etkinlik özeti güncellendi: {eventTitle}");
+    }
+}
+
+/// <summary>
+/// Kampüs içi kiosk ekranını güncelleyen observer.
+/// </summary>
+public sealed class KioskSubscriber : IEventSubscriber
+{
+    /// <inheritdoc />
+    public void Update(string eventTitle)
+    {
+        Console.WriteLine($"[Kiosk] Panoya eklendi: {eventTitle}");
+    }
+}
+
+public static class Demo
+{
+    public static void Main()
+    {
+        var board = new EventBoard();
+
+        board.Attach(new MobileAppSubscriber());
+        board.Attach(new EmailSubscriber());
+        board.Attach(new KioskSubscriber());
+
+        board.PublishEvent("Açık Hava Sinema Gecesi");
+    }
 }
 ```
 
-## 7. Ne Zaman Kullanılır?
+## 7. Avantajlar
 
-- Aynı davranış birden fazla yerde tekrar etmeye başladıysa
-- Değişen kararları merkezi veya açık bir modele almak gerekiyorsa
-- Unit test yazmak için davranışın izole edilmesi gerekiyorsa
-- Controller, handler veya servis sınıfı fazla sorumluluk almaya başladıysa
-- Yeni davranış eklerken mevcut kodu bozma riski yükseldiyse
+- Publisher ve subscriber gevşek bağlı kalır.
+- Yeni kanal eklemek mevcut akışı bozmaz.
+- Olay tabanlı mimariye geçişi kolaylaştırır.
+- Uygulama akışının okunabilirliğini artırır.
 
-## 8. Ne Zaman Kullanılmamalıdır?
+## 8. Riskler
 
-- Problem henüz basitse ve desen gereksiz soyutlama üretecekse
-- Tek kullanımlık, değişmeyecek ve kritik olmayan bir kod parçası için ağır bir yapı kurulacaksa
-- Ekip deseni anlamadan sadece “pattern kullanmış olmak” için uygulanacaksa
-- Daha sade bir method veya küçük class ayrımı yeterliyse
+- Abone sayısı arttıkça olay akışını takip etmek zorlaşabilir.
+- Yanlış tasarımda beklenmeyen bildirim sıralaması sorun yaratabilir.
+- Çok sık event üretimi performans ve log gürültüsü oluşturabilir.
+- Yaşam döngüsü doğru yönetilmezse gereksiz abonelikler kalabilir.
 
-## 9. Avantajlar
+## 9. Test Edilebilirlik Notları
 
-- Kodun okunabilirliğini artırır.
-- Sorumlulukları daha net ayırır.
-- Test edilebilirliği güçlendirir.
-- Değişiklik etkisini sınırlar.
-- Clean Architecture yaklaşımını destekler.
-- Domain ve application sınırlarını korumaya yardımcı olur.
-
-## 10. Dikkat Edilecekler
-
-- Desen, gerçek bir problemi çözmelidir.
-- Fazla abstraction kodun anlaşılmasını zorlaştırabilir.
-- Dosya ve namespace isimleri ana README yapısıyla uyumlu olmalıdır.
-- Public API yüzeyi XML comment ile dokümante edilmelidir.
-- Örnek domain dışında gerçek şirket, gerçek müşteri veya hassas iş modeli adı kullanılmamalıdır.
-
-## 11. Kontrol Listesi
-
-- [ ] Desen gerçek bir tekrar, değişkenlik veya bağımlılık problemini çözüyor mu?
-- [ ] Class ve interface isimleri niyeti açık anlatıyor mu?
-- [ ] Katman sorumlulukları korunuyor mu?
-- [ ] Unit test yazmak kolay mı?
-- [ ] Public üyeler XML Documentation Comment içeriyor mu?
-- [ ] Örnekler domain bağımsız mı?
+- `EventBoard` testlerinde fake subscriber ile `Update` çağrı sayısı doğrulanabilir.
+- Her observer bağımsız test edilebilir; tek sorumluluk ilkesi korunur.
+- `Attach`/`Detach` davranışı için birim testler kolayca yazılabilir.
+- Senaryo testlerinde tek bir publish ile farklı çıktı kanallarının tetiklenmesi doğrulanabilir.
